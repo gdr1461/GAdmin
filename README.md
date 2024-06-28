@@ -9,5 +9,5 @@ This system uses `DataStoreService`, so it is recommended to set `Enable Studio 
 # Settings
 To set system to yourself, open `GAdminLoader/Settings`. Settings will be descriped here more.
 
-## Admin Access:
-Test
+  ### Admin Access:
+  Test
