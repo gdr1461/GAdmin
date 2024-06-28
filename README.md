@@ -1,2 +1,3 @@
 # How to use?
-- TEXT HERE
+- Download `zip` file.
+- 
