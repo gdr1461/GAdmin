@@ -17,35 +17,26 @@ Read `GAdminLoader/Addons/ServerCommands/INFO` first.
 ## Server command template:
 ```lua
 {
-		Command = "TestPlayerDamage",
-		RequiredRank = 0,
-		Alias = {"TestDamage"},
+		Command = "Explode",
+		RequiredRank = 3,
+		Alias = {"Explosion"},
 		UppercaseMatters = false,
-		
-		Debug = true, -- Command won't work anywhere.
 		
 		Client = false,
 		ClientOnly = false,
 		
 		Loop = false,
 
-		Arguments = {"Player@", "number;"},
-		References = {"Player", "Damage"},
-		ArgPermissions = {3},
-
-		-- UnDo = function(Caller, Arguments)
-		--	
-		-- end,
+		Arguments = {"Player@"},
+		References = {"Player"},
+		ArgPermissions = {},
 
 		Function = function(Caller, Arguments)
 			local player = Arguments[1]
-			local DamageAmount = Arguments[2]
+			local Explosion = Instance.new("Explosion")
 
-			player.Character.Humanoid:TakeDamage(DamageAmount)
+			Explosion.Parent = player.Character.HumanoidRootPart
+			Explosion.CFrame = player.Character:GetPivot9)
 		end,
-
-		-- PreFunction = function(Caller, Arguments)
-		--
-		-- end,
 	},
 ```
