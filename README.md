@@ -17,26 +17,55 @@ Read `GAdminLoader/Addons/ServerCommands/INFO` first.
 ## Server command template:
 ```lua
 {
-		Command = "Explode",
-		RequiredRank = 3,
-		Alias = {"Explosion"},
-		UppercaseMatters = false,
+	Command = "Explode",
+	RequiredRank = 3,
+	Alias = {"Explosion"},
+	UppercaseMatters = false,
 		
-		Client = false,
-		ClientOnly = false,
+	Client = false,
+	ClientOnly = false,
 		
-		Loop = false,
+	Loop = false,
 
-		Arguments = {"Player@"},
-		References = {"Player"},
-		ArgPermissions = {},
+	Arguments = {"Player@"},
+	References = {"Player"},
+	ArgPermissions = {},
 
-		Function = function(Caller, Arguments)
-			local player = Arguments[1]
-			local Explosion = Instance.new("Explosion")
+	Function = function(Caller, Arguments)
+		local player = Arguments[1]
+		local Explosion = Instance.new("Explosion")
 
-			Explosion.Parent = player.Character.HumanoidRootPart
-			Explosion.CFrame = player.Character:GetPivot9)
-		end,
-	},
+		Explosion.Parent = player.Character.HumanoidRootPart
+		Explosion.CFrame = player.Character:GetPivot9)
+	end,
+},
+```
+
+## Client command template:
+### In `ServerCommands`:
+```lua
+{
+	Command = "View",
+	RequiredRank = 3,
+	Alias = {"SeePlayer"},
+	UppercaseMatters = false,
+		
+	Client = true,
+	ClientOnly = true,
+		
+	Loop = false,
+
+	Arguments = {"Player@"},
+	References = {"Player"},
+	ArgPermissions = {},
+},
+```
+
+### In `ClientCommands`:
+```lua
+ClientCommands.View = function(Caller, Arguments)
+	local Player = Arguments[1]
+	workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
+	workspace.CurrentCamera.CameraSubject = Player.Character.Humanoid
+end
 ```
