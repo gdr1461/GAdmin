@@ -12,7 +12,7 @@ Some of the settings can be outdated.
 
 # Custom commands
 You can make either `client` or `server` custom commands.
-Read `GAdminLoader/Addons/ServerCommands/INFO` first.
+Read `GAdminLoader/Addons/ServerCommands/INFO` and `GAdminLoader/Addons/ClientCommands/INFO` first.
 
 ## Server command template:
 ```lua
