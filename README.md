@@ -10,6 +10,19 @@ This system uses `DataStoreService`, so it is recommended to set `Enable Studio 
 Settings is located at: `GAdminLoader/Settings`.
 Some of the settings can be outdated.
 
+# API Usage
+`API` has many useful methods. As an example, `API:GetBanlist()`.
+
+To get `API`, you first need to get `GAdmin MainModule`:
+```lua
+local GAdmin = require(_G.GAdmin)
+```
+
+And then, get the `API` from it:
+```lua
+local API = GAdmin:GetAPI()
+```
+
 # Custom commands
 You can make either `client` or `server` custom commands.
 Read `GAdminLoader/Addons/ServerCommands/INFO` and `GAdminLoader/Addons/ClientCommands/INFO` first.
