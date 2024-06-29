@@ -175,6 +175,8 @@ export type ServerAPI = {
 	IsBanned: (self: ServerAPI, player: Player) -> boolean,
 
 	Ban: (self: ServerAPI, Caller: Player, UserId: number, Reason: string, Time: number?) -> (string, string?),
+	BanIP: (self: ServerAPI, Caller: Player, UserId: number, Reason: string, Time: number?) -> (string, string?),
+	
 	UnBan: (self: ServerAPI, UserId: number) -> (string, string?),
 	PushMessage: (self: ServerAPI, Data: MessageTopic) -> (),
 
