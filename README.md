@@ -36,7 +36,7 @@ Read `GAdminLoader/Addons/ServerCommands/INFO` and `GAdminLoader/Addons/ClientCo
 		local Explosion = Instance.new("Explosion")
 
 		Explosion.Parent = player.Character.HumanoidRootPart
-		Explosion.CFrame = player.Character:GetPivot9)
+		Explosion.CFrame = player.Character:GetPivot()
 	end,
 },
 ```
