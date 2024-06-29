@@ -31,6 +31,8 @@ Settings.Ranks = { -- In Users you can put either userid or username.
 }
 
 Settings.AdminAccess = 1 -- Required rank for Gui to work for player. Make nil for free access.
+Settings.IPBanAccess = 4 -- Required  rank for IP bans.
+
 Settings.RankNoticeAccess = 1 -- Required rank for notice to appear saying player's rank. Make nil for all ranks.
 Settings.BToolsAccess = 4 -- Required rank to give yourself Building Tools.
 
@@ -43,8 +45,8 @@ Settings.DefaultBanMessage = "No Reason" -- The ban message if caller didn't put
 Settings.CommandInLineDebounce = false -- Will the commands wait for current command to complete in the batch or not. (Batch example: ;rank ;cmds ;fly)
 Settings.DefaultPrefix = ";"  -- Default prefix.
 Settings.PrivateServerOwner = 1 -- Default private server owner rank.
-Settings.DefaultRank = 0  -- Default rank.
-Settings.Banned = {}
+Settings.DefaultRank = 4  -- Default rank.
+Settings.Banned = {} -- Banlist.
 
 Settings.GroupRanks = { -- Ranks from groups.
 	[0] = { -- Group Id
