@@ -63,7 +63,7 @@ local GAdmin: MainModule = getmetatable(Proxy)
 GAdmin.__metatable = "[GAdmin]: Metatable methods are restricted."
 GAdmin.__type = "GAdmin Main"
 
-GAdmin.__version = "v0.9.5"
+GAdmin.__version = "v0.9.7"
 GAdmin.__LoaderVersion = "v1.0.0"
 
 GAdmin.__Connections = {
@@ -122,7 +122,7 @@ GAdmin.GetDataActions = {
 		return Info
 	end,
 	
-	Ban = function(Caller, UserId, Reason, Duration)
+	Ban = function(Caller, UserId, Reason, Duration, IpBan)
 		if Caller.UserId == UserId then
 			return "Error", "No permission to ban yourself."
 		end
@@ -130,6 +130,19 @@ GAdmin.GetDataActions = {
 		local Name, CommandData = Parser:GetCommand("Ban")
 		if Data.SessionData[Caller.UserId].ServerRank < CommandData.RequiredRank then
 			return "Error", "Your rank is lower than required."
+		end
+		
+		if IpBan and Settings.APIBanAccess and Settings.APIBanAccess > API:GetUserRank(Caller) then
+			return "Error", `Your rank is lower than required for ip ban.`
+		end
+		
+		if IpBan then
+			local Reject, Error = API:BanIP(Caller, UserId, Reason, Duration)
+			if Reject then
+				return "Error", Error
+			end
+			
+			return "Notify", `{Players:GetNameFromUserIdAsync(UserId)} succefully banned.`
 		end
 		
 		local Reject, Error = API:Ban(Caller, UserId, Reason, Duration)
@@ -264,6 +277,11 @@ function GAdmin:Configure(LoaderVersion)
 	
 	local GlobalAPI = require(Data.ClientFolder.SharedModules.GlobalAPI)
 	local function ConfigurePlayer(player)
+		if table.find(Settings.Banned, player.UserId) or table.find(Settings.Banned, player.Name) then
+			player:Kick(`You were blacklisted from playing this game.`)
+			return
+		end
+		
 		player.CharacterAdded:Connect(function(Character)
 			GlobalAPI:SetModelCollision(Character, "GAdmin Players")
 			Data.TempData[player.UserId] = {
