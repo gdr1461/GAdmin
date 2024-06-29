@@ -52,6 +52,7 @@ Read `GAdminLoader/Addons/ServerCommands/INFO` and `GAdminLoader/Addons/ClientCo
 		
 	Client = true,
 	ClientOnly = true,
+	CallerClient = true,
 		
 	Loop = false,
 
