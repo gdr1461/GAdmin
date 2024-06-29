@@ -66,7 +66,6 @@ Read `GAdminLoader/Addons/ServerCommands/INFO` and `GAdminLoader/Addons/ClientCo
 ```lua
 ClientCommands.View = function(Caller, Arguments)
 	local Player = Arguments[1]
-	workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
 	workspace.CurrentCamera.CameraSubject = Player.Character.Humanoid
 end
 ```
