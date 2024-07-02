@@ -1,3 +1,15 @@
+local Http = game:GetService("HttpService")
+local Success, Versions = xpcall(function()
+	return Http:GetAsync("https://raw.githubusercontent.com/gdr1461/GAdmin/main/Version", true)
+end, function()
+	warn(`--== GAdmin Loader`)
+	warn(`No access to HTTP requests.`)
+	warn(`Want to be notified whenever new version of GAdmin is out? Enable 'Allow HTTP Requests' in Game Settings.`)
+	warn(`--==`)
+end)
+
+local VersionsSplitted = Success and Versions:split(" | ")
+
 local PhysicsService = game:GetService("PhysicsService")
 PhysicsService:RegisterCollisionGroup("GAdmin Players")
 
@@ -25,6 +37,7 @@ export type MainModule = {
 	__version: string,
 	__LoaderVersion: string,
 	
+	__PlayerCalls: {() -> ()},
 	__Connections: {
 		Listeners: {[number]: Connections}
 	},
@@ -40,6 +53,9 @@ export type MainModule = {
 	Listen: (self: MainModule, player: Player) -> Connections,
 	DistributeCommands: (self: MainModule) -> {any},
 	ClearConnections: (self: MainModule, Type: string?, Name: string?) -> (),
+	
+	SetTopBars: (self: MainModule, ModuleScript: ModuleScript) -> (),
+	SetCalls: (self: MainModule, ModuleScript: ModuleScript) -> (),
 	
 	SetServerCommands: (self: MainModule, ServerCommands: {any}) -> (),
 	SetClientCommands: (self: MainModule, Module: ModuleScript) -> (),
@@ -63,9 +79,10 @@ local GAdmin: MainModule = getmetatable(Proxy)
 GAdmin.__metatable = "[GAdmin]: Metatable methods are restricted."
 GAdmin.__type = "GAdmin Main"
 
-GAdmin.__version = "v0.9.8"
-GAdmin.__LoaderVersion = "v1.0.0"
+GAdmin.__version = "v1.0.0"
+GAdmin.__LoaderVersion = VersionsSplitted and VersionsSplitted[1]:split(": ")[2] or "v1.0.0"
 
+GAdmin.__PlayerCalls = {}
 GAdmin.__Connections = {
 	Listeners = {}
 }
@@ -212,8 +229,11 @@ GAdmin.GetDataActions = {
 		return Logs
 	end,
 	
-	NotifyRank = function(Caller)
-		return Settings.RankNoticeAccess or 0
+	Access = function(Caller)
+		return {
+			Admin = Settings.AdminAccess or 0,
+			Notify = Settings.RankNoticeAccess or 0
+		}
 	end,
 }
 
@@ -339,6 +359,10 @@ function GAdmin:Configure(LoaderVersion)
 			return
 		end
 
+		for i, Function in ipairs(self.__PlayerCalls) do
+			coroutine.wrap(Function)(player)
+		end
+
 		self:Listen(player)
 	end
 	
@@ -396,6 +420,7 @@ function GAdmin:Configure(LoaderVersion)
 	end)
 	
 	if LoaderVersion ~= self.__LoaderVersion then
+		warn(`[GAdmin]: This game uses old loader, to update it, go to GAdmin's github page.`)
 		Data.ClientFolder.StarterGui.GAdminGui.MainFrame.OldVersion.Visible = true
 	end
 	
@@ -526,6 +551,15 @@ function GAdmin:DistributeObjects(Folder)
 		
 		Object.Parent = script.Objects
 	end
+end
+
+function GAdmin:SetTopBars(Module)
+	Module.Parent = Data.ClientFolder.Modules.Framework.TopBar.Icon
+end
+
+function GAdmin:SetCalls(Module)
+	Module.Parent = script
+	self.__PlayerCalls = require(Module)
 end
 
 --== COMMANDS EXECUTION ON CHATTED ==--
