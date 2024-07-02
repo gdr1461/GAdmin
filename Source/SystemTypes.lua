@@ -257,7 +257,8 @@ export type ClientAPI = {
 		Small: UDim2,
 		Normal: UDim2,
 	},
-
+	
+	Notify: (self: ClientAPI, Type: "Notify" | "Error" | "Warn", Text: string, Timer: number?, OnInteract: () -> ()?) -> {any},
 	CreateWindow: (self: ClientAPI, Title: string, Data: WindowData) -> Frame,
 	CreateInputWindow: (self: APIModule, Title: string, Data: InputWindowData) -> Frame,
 	
