@@ -10,7 +10,7 @@ This system uses `DataStoreService`, so it is recommended to set `Enable Studio 
 Settings is located at: `GAdminLoader/Settings`.
 Some of the settings can be outdated.
 
-# Customability
+# Customizability
 With `GAdmin` you can:
 - Create your own `TopBars` with `TopBarPlus`;
 - Create your own `Commands`;
