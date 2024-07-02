@@ -8,6 +8,7 @@
 
 -- << OTHER >>
 
+local TopBarPlusTypes = require(script.TopBarPlus)
 export type UserId = {}
 export type Banned = {
 	Reason: string,
@@ -258,6 +259,10 @@ export type ClientAPI = {
 		Normal: UDim2,
 	},
 	
+	GetTopBarPlus: (self: ClientAPI) -> TopBarPlusTypes.ModuleType,
+	GetTopBar: (self: ClientAPI) -> TopBarPlusTypes.IconType,
+	TopBarEnabled: (self: ClientAPI, Enabled: boolean) -> (),
+	
 	Notify: (self: ClientAPI, Type: "Notify" | "Error" | "Warn", Text: string, Timer: number?, OnInteract: () -> ()?) -> {any},
 	CreateWindow: (self: ClientAPI, Title: string, Data: WindowData) -> Frame,
 	CreateInputWindow: (self: APIModule, Title: string, Data: InputWindowData) -> Frame,
@@ -266,4 +271,6 @@ export type ClientAPI = {
 	Clear: (self: ClientAPI) -> (),
 }
 
-return {}
+local SystemTypes = {}
+
+return SystemTypes
