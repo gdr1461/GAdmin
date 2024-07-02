@@ -9,6 +9,7 @@
 --________________________________________________________________________________________________________________________________________________________
 
 local Object = script:FindFirstChild("MainModule") or 18192625081
+local LoaderVersion = "v1.1.0"
 
 local Settings = require(script.Settings)
 local Addons = require(script.Addons)
@@ -18,5 +19,8 @@ GAdmin:DistributeObjects(script.Addons:FindFirstChild("Objects"))
 GAdmin:SetServerCommands(Addons:GetServerCommands())
 GAdmin:SetClientCommands(Addons:GetClientCommands())
 
+GAdmin:SetCalls(Addons:GetCalls())
+GAdmin:SetTopBars(Addons:GetTopBars())
+
 GAdmin:SetNewSettings(Settings)
-GAdmin:Configure("v1.0.0")
+GAdmin:Configure(LoaderVersion)
