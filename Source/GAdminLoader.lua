@@ -16,7 +16,7 @@ local GAdmin = require(Object)
 
 GAdmin:DistributeObjects(script.Addons:FindFirstChild("Objects"))
 GAdmin:SetServerCommands(Addons:GetServerCommands())
-GAdmin:SetClientCommands(Addons:GetClientCommands(true))
+GAdmin:SetClientCommands(Addons:GetClientCommands())
 
 GAdmin:SetNewSettings(Settings)
 GAdmin:Configure("v1.0.0")
