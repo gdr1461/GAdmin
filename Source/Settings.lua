@@ -45,7 +45,7 @@ Settings.DefaultBanMessage = "No Reason" -- The ban message if caller didn't put
 Settings.CommandInLineDebounce = false -- Will the commands wait for current command to complete in the batch or not. (Batch example: ;rank ;cmds ;fly)
 Settings.DefaultPrefix = ";"  -- Default prefix.
 Settings.PrivateServerOwner = 1 -- Default private server owner rank.
-Settings.DefaultRank = 4  -- Default rank.
+Settings.DefaultRank = 0  -- Default rank.
 Settings.Banned = {} -- Banlist.
 
 Settings.GroupRanks = { -- Ranks from groups.
