@@ -2,8 +2,10 @@ export type GAdminAddons = {
 	__metatable: string,
 	__type: string,
 	
-	GetServerCommands: (self: GAdminAddons, NonRequired: boolean?) -> {any},
-	GetClientCommands: (self: GAdminAddons, NonRequired: boolean?) -> {}
+	GetServerCommands: (self: GAdminAddons, NonRequired: boolean?) -> ModuleScript,
+	GetClientCommands: (self: GAdminAddons, NonRequired: boolean?) -> ModuleScript,
+	GetCalls: (self: GAdminAddons) -> ModuleScript,
+	GetTopBars: (self: GAdminAddons) -> ModuleScript,
 }
 
 local Proxy = newproxy(true)
@@ -25,12 +27,20 @@ function Addons:__newindex(Key, Value)
 	return Value
 end
 
-function Addons:GetServerCommands(NonRequired)
+function Addons:GetServerCommands()
 	return script.ServerCommands
 end
 
-function Addons:GetClientCommands(NonRequired)
+function Addons:GetClientCommands()
 	return script.ClientCommands
+end
+
+function Addons:GetCalls()
+	return script.Calls
+end
+
+function Addons:GetTopBars()
+	return script.TopBars
 end
 
 return Proxy :: GAdminAddons
