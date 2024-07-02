@@ -63,7 +63,7 @@ local GAdmin: MainModule = getmetatable(Proxy)
 GAdmin.__metatable = "[GAdmin]: Metatable methods are restricted."
 GAdmin.__type = "GAdmin Main"
 
-GAdmin.__version = "v0.9.7"
+GAdmin.__version = "v0.9.8"
 GAdmin.__LoaderVersion = "v1.0.0"
 
 GAdmin.__Connections = {
@@ -274,6 +274,9 @@ end
 function GAdmin:Configure(LoaderVersion)
 	print(`--== GAdmin {self.__version}`)
 	print(`[GAdmin]: Configuring..`)
+	
+	Data.BinFolder.Name = "GAdmin Bin"
+	Data.BinFolder.Parent = game.ReplicatedStorage
 	
 	local GlobalAPI = require(Data.ClientFolder.SharedModules.GlobalAPI)
 	local function ConfigurePlayer(player)
