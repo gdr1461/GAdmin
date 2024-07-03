@@ -1,6 +1,10 @@
 export type GAdminAddons = {
 	__metatable: string,
 	__type: string,
+	__PackSystem: {[string]: ModuleScript},
+	
+	SeparateAll: (self: GAdminAddons) -> (),
+	Separate: (self: GAdminAddons, Pack: Folder) -> (),
 	
 	GetServerCommands: (self: GAdminAddons, NonRequired: boolean?) -> ModuleScript,
 	GetClientCommands: (self: GAdminAddons, NonRequired: boolean?) -> ModuleScript,
@@ -13,6 +17,13 @@ local Addons: GAdminAddons = getmetatable(Proxy)
 
 Addons.__metatable = "[GAdmin Addons]: Metatable methods are restricted."
 Addons.__type = "GAdmin Addons"
+
+Addons.__PackSystem = {
+	ServerCommands = script.ServerCommands,
+	ClientCommands = script.ClientCommands,
+	Calls = script.Calls,
+	TopBars = script.TopBars
+}
 
 function Addons:__tostring()
 	return self.__type
@@ -41,6 +52,27 @@ end
 
 function Addons:GetTopBars()
 	return script.TopBars
+end
+
+function Addons:SeparateAll()
+	for i, Package in ipairs(script.Packs:GetChildren()) do
+		self:Separate(Package)
+	end
+end
+
+function Addons:Separate(Pack)
+	for System, Parent in pairs(self.__PackSystem) do
+		local ModuleObject = Pack:FindFirstChild(System)
+		print(Pack.Name, System, ModuleObject)
+		if not ModuleObject then
+			continue
+		end
+		
+		ModuleObject.Name = `[{Pack.Name}] {System}`
+		ModuleObject.Parent = Parent
+	end
+	
+	Pack:Destroy()
 end
 
 return Proxy :: GAdminAddons
