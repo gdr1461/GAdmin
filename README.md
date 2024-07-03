@@ -2,6 +2,7 @@
 - Download [zip](https://github.com/gdr1461/GAdmin/blob/main/GAdminLoader.zip) file.
 - Unpack it.
 - Place it into `ServerScriptService`.
+- Read [wiki](https://github.com/gdr1461/GAdmin/wiki).
 
 # Requirements
 - Usage `DataStoreService`, so it is recommended to set `Enable Studio Access to API Services` to `true`.
