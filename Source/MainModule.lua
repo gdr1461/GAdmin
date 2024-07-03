@@ -1,15 +1,4 @@
-local Http = game:GetService("HttpService")
-local Success, Versions = xpcall(function()
-	return Http:GetAsync("https://raw.githubusercontent.com/gdr1461/GAdmin/main/Version", true)
-end, function()
-	warn(`--== GAdmin Loader`)
-	warn(`No access to HTTP requests.`)
-	warn(`Want to be notified whenever new version of GAdmin is out? Enable 'Allow HTTP Requests' in Game Settings.`)
-	warn(`--==`)
-end)
-
-local VersionsSplitted = Success and Versions:split(" | ")
-
+--== COLLISION GROUPS ==--
 local PhysicsService = game:GetService("PhysicsService")
 PhysicsService:RegisterCollisionGroup("GAdmin Players")
 
@@ -19,6 +8,7 @@ PhysicsService:CollisionGroupSetCollidable("GAdmin Players", "GAdmin NonPlayers"
 PhysicsService:RegisterCollisionGroup("GAdmin NonCollide")
 PhysicsService:CollisionGroupSetCollidable("GAdmin NonCollide", "Default", false)
 PhysicsService:CollisionGroupSetCollidable("GAdmin NonCollide", "GAdmin Players", false)
+--==                  ==--
 
 local TextService = game:GetService("TextService")
 local Players = game:GetService("Players")
@@ -79,8 +69,8 @@ local GAdmin: MainModule = getmetatable(Proxy)
 GAdmin.__metatable = "[GAdmin]: Metatable methods are restricted."
 GAdmin.__type = "GAdmin Main"
 
-GAdmin.__version = "v1.0.0"
-GAdmin.__LoaderVersion = VersionsSplitted and VersionsSplitted[1]:split(": ")[2] or "v1.0.0"
+GAdmin.__version = "v1.1.0"
+GAdmin.__LoaderVersion = "v1.0.0"
 
 GAdmin.__PlayerCalls = {}
 GAdmin.__Connections = {
@@ -102,6 +92,14 @@ GAdmin.GetDataActions = {
 	
 	GetCommands = function(player)
 		return Commands
+	end,
+	
+	GetNotifySettings = function(player)
+		return {
+			Default = not Settings.NoNotifies,
+			Warn = not Settings.NoWarns,
+			Error = not Settings.NoErrors
+		}
 	end,
 	
 	GetRankCommands = function(player)
@@ -295,6 +293,25 @@ function GAdmin:Configure(LoaderVersion)
 	print(`--== GAdmin {self.__version}`)
 	print(`[GAdmin]: Configuring..`)
 	
+	--== GETTING LATEST VERSION OF LOADER ==--
+	local Http = game:GetService("HttpService")
+	local Success, Versions = xpcall(function()
+		return Http:GetAsync("https://raw.githubusercontent.com/gdr1461/GAdmin/main/Version", true)
+	end, function()
+		if not Settings.HTTPWarn then
+			return
+		end
+		
+		warn(`--== GAdmin Loader`)
+		warn(`No access to HTTP requests.`)
+		warn(`Want to be notified whenever new version of GAdmin is out? Enable 'Allow HTTP Requests' in Game Settings.`)
+		warn(`--==`)
+	end)
+
+	local VersionsSplitted = Success and Versions:split(" | ")
+	self.__LoaderVersion = VersionsSplitted and VersionsSplitted[1]:split(": ")[2] or self.__LoaderVersion
+	
+	--== CREATING GARBAGE BIN ==--
 	Data.BinFolder.Name = "GAdmin Bin"
 	Data.BinFolder.Parent = game.ReplicatedStorage
 	
@@ -308,6 +325,7 @@ function GAdmin:Configure(LoaderVersion)
 		player.CharacterAdded:Connect(function(Character)
 			GlobalAPI:SetModelCollision(Character, "GAdmin Players")
 			Data.TempData[player.UserId] = {
+				Commands = 0,
 				Health = Character.Humanoid.Health,
 				MaxHealth = Character.Humanoid.MaxHealth,
 				Speed = Character.Humanoid.WalkSpeed,
@@ -362,6 +380,16 @@ function GAdmin:Configure(LoaderVersion)
 		for i, Function in ipairs(self.__PlayerCalls) do
 			coroutine.wrap(Function)(player)
 		end
+		
+		coroutine.wrap(function()
+			while task.wait(60) do
+				if not player or player.Parent == nil then
+					break
+				end
+				
+				Data.TempData[player.UserId].Commands = 0
+			end
+		end)()
 
 		self:Listen(player)
 	end
@@ -419,7 +447,7 @@ function GAdmin:Configure(LoaderVersion)
 		Parser:TriggerCommands(player, MessageData)
 	end)
 	
-	if LoaderVersion ~= self.__LoaderVersion then
+	if LoaderVersion ~= self.__LoaderVersion and not Settings.UseOldVersion then
 		warn(`[GAdmin]: This game uses old loader, to update it, go to GAdmin's github page.`)
 		Data.ClientFolder.StarterGui.GAdminGui.MainFrame.OldVersion.Visible = true
 	end
@@ -513,6 +541,31 @@ function GAdmin:SetServerCommands(Module)
 	Module.Name = "AddonsCommands"
 	
 	local ServerCommands = require(Module)
+	for i, ModuleObject in ipairs(Module:GetChildren()) do
+		if not ModuleObject:IsA("ModuleScript") or ModuleObject.Name == "INFO" then
+			continue
+		end
+		
+		local AddonCommands = require(ModuleObject)
+		for i, Setting in ipairs(AddonCommands) do
+			if Parser:GetCommand(Setting.Name) then
+				warn(`[GAdmin Main]: Unable to load {Module.Name} command '{Setting.Command}'. Reason: Duplicated command.`)
+				continue
+			end
+			
+			for i, Alias in ipairs(Setting.Alias) do
+				if not Parser:GetCommand(Alias) then
+					continue
+				end
+
+				warn(`[GAdmin Main]: Removed Alias '{Alias}' of {Module.Name} command '{Setting.Command}'. Reason: Duplicated command.`)
+				Setting.Alias[i] = nil
+			end
+
+			table.insert(Commands, Setting)
+		end
+	end
+	
 	for i, Setting in ipairs(ServerCommands) do
 		if Parser:GetCommand(Setting.Name) then
 			warn(`[GAdmin Main]: Unable to load server command '{Setting.Command}'. Reason: Duplicated command.`)
@@ -530,6 +583,8 @@ function GAdmin:SetServerCommands(Module)
 		
 		table.insert(Commands, Setting)
 	end
+	
+	Module:Destroy()
 end
 
 function GAdmin:SetClientCommands(Module)
@@ -560,6 +615,19 @@ end
 function GAdmin:SetCalls(Module)
 	Module.Parent = script
 	self.__PlayerCalls = require(Module)
+	
+	for i, ModuleObject in ipairs(Module:GetChildren()) do
+		if not ModuleObject:IsA("ModuleScript") or ModuleObject.Name == "INFO" then
+			continue
+		end
+		
+		local Module = require(ModuleObject)
+		for i, Function in ipairs(Module) do
+			table.insert(self.__PlayerCalls, Function)
+		end
+	end
+	
+	Module:Destroy()
 end
 
 --== COMMANDS EXECUTION ON CHATTED ==--
