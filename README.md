@@ -1,10 +1,11 @@
 # How to use?
-- Download `zip` file.
+- Download [zip](https://github.com/gdr1461/GAdmin/blob/main/GAdminLoader.zip) file.
 - Unpack it.
 - Place it into `ServerScriptService`.
 
 # Requirements
-This system uses `DataStoreService`, so it is recommended to set `Enable Studio Access to API Services` to `true`.
+- Usage `DataStoreService`, so it is recommended to set `Enable Studio Access to API Services` to `true`.
+- Optional usage of `HttpService` to let you know if your GAdmin needs an update.
 
 # Settings
 Settings is located at: `GAdminLoader/Settings`.
@@ -12,7 +13,7 @@ Some of the settings can be outdated.
 
 # Customizability
 With `GAdmin` you can:
-- Create your own `TopBars` with `TopBarPlus`;
+- Change GAdmin's [TopBar](https://devforum.roblox.com/t/v3-topbarplus-v300-construct-intuitive-topbar-icons-customise-them-with-themes-dropdowns-captions-labels-and-much-more/1017485) using `TopBar.Reference` of `Client/Modules/Framework/TopBar`;
 - Create your own `Commands`;
 - Make `Calls`;
 - Use three of GAdmin's `APIs`.
