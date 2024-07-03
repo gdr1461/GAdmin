@@ -13,7 +13,7 @@ Some of the settings can be outdated.
 
 # Customizability
 With `GAdmin` you can:
-- Change GAdmin's [TopBar](https://devforum.roblox.com/t/v3-topbarplus-v300-construct-intuitive-topbar-icons-customise-them-with-themes-dropdowns-captions-labels-and-much-more/1017485) using `TopBar.Reference` of `Client/Modules/Framework/TopBar`;
+- Change GAdmin's TopBar using `TopBar.Reference` of `Client/Modules/Framework/TopBar`;
 - Create your own `Commands`;
 - Make `Calls`;
 - Use three of GAdmin's `APIs`.
