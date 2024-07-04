@@ -56,15 +56,15 @@ export type MainModule = {
 }
 
 _G.GAdmin = script
-local Settings = require(script.Settings)
-local API = require(script.API)
-
-local Data = require(script.Data)
+local Data = require(script.Server.Modules.Data)
 local Signals = require(Data.ClientFolder.SharedModules.Signals)
 
-local Commands = require(script.Commands)
-local Parser = require(script.Parser)
-local DataStoreLoader = require(script.DataStoreLoader)
+local Settings = require(Data.ServerFolder.Modules.Settings)
+local API = require(Data.ServerFolder.Modules.API)
+
+local Commands = require(Data.ServerFolder.Modules.Commands)
+local Parser = require(Data.ServerFolder.Modules.Parser)
+local DataStoreLoader = require(Data.ServerFolder.Modules.DataStoreLoader)
 
 local Proxy = newproxy(true)
 local GAdmin: MainModule = getmetatable(Proxy)
@@ -72,8 +72,8 @@ local GAdmin: MainModule = getmetatable(Proxy)
 GAdmin.__metatable = "[GAdmin]: Metatable methods are restricted."
 GAdmin.__type = "GAdmin Main"
 
-GAdmin.__version = "v1.1.1"
-GAdmin.__LoaderVersion = "v1.0.0"
+GAdmin.__version = "v1.1.2"
+GAdmin.__LoaderVersion = "v1.2.0"
 
 GAdmin.__PlayerCalls = {}
 GAdmin.__Connections = {
@@ -297,24 +297,6 @@ function GAdmin:Configure(LoaderVersion)
 	print(`--== GAdmin {self.__version}`)
 	print(`[GAdmin]: Configuring..`)
 	
-	--== GETTING LATEST VERSION OF LOADER ==--
-	local Http = game:GetService("HttpService")
-	local Success, Versions = xpcall(function()
-		return Http:GetAsync("https://raw.githubusercontent.com/gdr1461/GAdmin/main/Version", true)
-	end, function()
-		if not Settings.HTTPWarn then
-			return
-		end
-		
-		warn(`--== GAdmin Loader`)
-		warn(`No access to HTTP requests.`)
-		warn(`Want to be notified whenever new version of GAdmin is out? Enable 'Allow HTTP Requests' in Game Settings.`)
-		warn(`--==`)
-	end)
-
-	local VersionsSplitted = Success and Versions:split(" | ")
-	self.__LoaderVersion = VersionsSplitted and VersionsSplitted[1]:split(": ")[2] or self.__LoaderVersion
-	
 	--== CREATING GARBAGE BIN ==--
 	Data.BinFolder.Name = "GAdmin Bin"
 	Data.BinFolder.Parent = game.ReplicatedStorage
@@ -451,7 +433,10 @@ function GAdmin:Configure(LoaderVersion)
 		Parser:TriggerCommands(player, MessageData)
 	end)
 	
-	if LoaderVersion ~= self.__LoaderVersion and not Settings.UseOldVersion then
+	local RawLoaderVersion = tonumber(LoaderVersion:gsub("%.", ""):gsub("v", ""), 10)
+	local RawNeedVersion = tonumber(self.__LoaderVersion:gsub("%.", ""):gsub("v", ""), 10)
+	
+	if RawLoaderVersion < RawNeedVersion then
 		warn(`[GAdmin]: This game uses old loader, to update it, go to GAdmin's github page.`)
 		Data.ClientFolder.StarterGui.GAdminGui.MainFrame.OldVersion.Visible = true
 	end
@@ -551,7 +536,7 @@ function GAdmin:SetNewSettings(NewSettings)
 end
 
 function GAdmin:SetServerCommands(Module)
-	Module.Parent = script.Commands
+	Module.Parent = Data.ServerFolder.Modules.Commands
 	Module.Name = "AddonsCommands"
 	
 	local ServerCommands = require(Module)
@@ -613,12 +598,12 @@ function GAdmin:DistributeObjects(Folder)
 	end
 	
 	for i, Object in ipairs(Folder:GetChildren()) do
-		if script.Objects:FindFirstChild(Object.Name) then
+		if Data.ServerFolder.Objects:FindFirstChild(Object.Name) then
 			warn(`[GAdmin Main]: Unable to load object '{Object.Name}'. Reason: Duplicated object.`)
 			continue
 		end
 		
-		Object.Parent = script.Objects
+		Object.Parent = Data.ServerFolder.Objects
 	end
 end
 
@@ -627,7 +612,7 @@ function GAdmin:SetTopBars(Module)
 end
 
 function GAdmin:SetCalls(Module)
-	Module.Parent = script
+	Module.Parent = Data.ServerFolder.Modules
 	self.__PlayerCalls = require(Module)
 	
 	for i, ModuleObject in ipairs(Module:GetChildren()) do
