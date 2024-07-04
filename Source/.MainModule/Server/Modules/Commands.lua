@@ -1067,7 +1067,7 @@ local Commands = {
 
 		Function = function(Caller, Arguments)
 			local player = Arguments[1]
-			script.Parent.Objects["Building Tools"]:Clone().Parent = player.Backpack
+			Data.ServerFolder.Objects["Building Tools"]:Clone().Parent = player.Backpack
 		end,
 	},
 	
