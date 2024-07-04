@@ -157,8 +157,8 @@ function Framework:Configure()
 		if not Opened then
 			return
 		end
-
-		self:ResetMainFrame()
+		
+		self:CurrentFrame()
 	end)
 	
 	--== SETTING UP USER RANK UPDATE ==--
@@ -623,10 +623,22 @@ function Framework:NewCmdBar()
 		AutoFill.Parent = Data.CmdBar
 
 		for i, Command in ipairs(Similar) do
-			local Template = script.AutoFill.Fill:Clone()
-			Template.Name = Command
+			local CommandSettings = GlobalAPI:FindValueParent(Commands.Commands, Command)
+			CommandSettings = CommandSettings or {
+				Arguments = {},
+				References = {}
+			}
 			
-			Template.Title.Text = Command
+			local RawArguments = CommandSettings.References or CommandSettings.Arguments
+			for i, Argument in ipairs(RawArguments) do
+				RawArguments[i] = `[{Argument:gsub("%p", "")}]`
+			end
+			
+			local Arguments = table.concat(RawArguments, " ")
+			local Template = script.AutoFill.Fill:Clone()
+			
+			Template.Name = Command
+			Template.Title.Text = `{Command}{Arguments ~= "" and ` {Arguments}` or ""}`
 			Template.Parent = AutoFill
 			
 			AutoFills[i] = Template
@@ -719,8 +731,8 @@ function Framework:OpenFrame(Frame, Page)
 	
 	self.__Current = Frame.Name
 	local Pages = Frame:FindFirstChild("Pages")
-	
 	Page = Page or 1
+	
 	if Pages and Page then
 		self.__CurrentPage = Page
 		Pages[tostring(Page, 10)].Visible = true
