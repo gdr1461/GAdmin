@@ -26,6 +26,7 @@ export type MainModule = {
 	
 	__version: string,
 	__LoaderVersion: string,
+	__Configured: boolean,
 	
 	__PlayerCalls: {() -> ()},
 	__Connections: {
@@ -38,6 +39,8 @@ export type MainModule = {
 	Configure: (self: MainModule) -> (),
 	GetAPI: (self: MainModule) -> API.APIModule,
 	GetSignals: (self: MainModule) -> Signals.SignalManager,
+	GetParser: (self: MainModule) -> Parser.ParserModule,
+	RunOnComplete: (self: MainModule, Function: (Variables: any) -> (), Variables: any) -> (),
 	SetNewSettings: (self: MainModule, NewSettings: {any}) -> (),
 	
 	Listen: (self: MainModule, player: Player) -> Connections,
@@ -69,7 +72,7 @@ local GAdmin: MainModule = getmetatable(Proxy)
 GAdmin.__metatable = "[GAdmin]: Metatable methods are restricted."
 GAdmin.__type = "GAdmin Main"
 
-GAdmin.__version = "v1.1.0"
+GAdmin.__version = "v1.1.1"
 GAdmin.__LoaderVersion = "v1.0.0"
 
 GAdmin.__PlayerCalls = {}
@@ -77,6 +80,7 @@ GAdmin.__Connections = {
 	Listeners = {}
 }
 
+GAdmin.__Configured = false
 GAdmin.GetDataActions = {
 	ClientCommands = function(player)
 		return Data.ClientCommandsList
@@ -512,6 +516,7 @@ function GAdmin:Configure(LoaderVersion)
 		self.__Topics[Data.Data.Topic](Data.Sent, unpack(Data.Data.Arguments))
 	end)
 	
+	self.__Configured = true
 	print(`[GAdmin]: Game configured to run GAdmin.`)
 	print("--==")
 end
@@ -523,6 +528,15 @@ end
 
 function GAdmin:GetSignals()
 	return Signals
+end
+
+function GAdmin:GetParser()
+	return Parser
+end
+
+function GAdmin:RunOnComplete(Function, ...)
+	repeat task.wait() until self.__Configured
+	Function(...)
 end
 
 function GAdmin:SetNewSettings(NewSettings)
