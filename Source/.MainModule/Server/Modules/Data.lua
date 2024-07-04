@@ -190,7 +190,9 @@ Data.ArgumentsTransform = {
 Data.IgnoreClasses = {"Object"}
 
 Data.ClientCommandsList = {}
-Data.ClientFolder = script.Parent.Client
+Data.ClientFolder = script.Parent.Parent.Parent.Client
 
 Data.BinFolder = Instance.new("Folder")
+Data.ServerFolder = script.Parent.Parent
+
 return Data
