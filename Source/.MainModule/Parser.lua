@@ -2,6 +2,17 @@ export type ParserModule = {
 	__metatable: string,
 	__type: string,
 	
+	__Deprecated: {
+		[string]: {
+			Replacement: string,
+			UseNewMethod: boolean,
+			Warned: boolean,
+		}
+	},
+	
+	Parse: (self: ParserModule, Caller: Player, Message: string) -> {any},
+	ParseData: (self: ParserModule, Caller: Player, MessageData: {any}) -> {any},
+	
 	ParseMessage: (self: ParserModule, Caller: Player, Message: string, IgnorePrefix: boolean?) -> {any},
 	GetCommand: (self: ParserModule, Command: string) -> (string, {any}),
 	
@@ -28,11 +39,31 @@ local Parser: ParserModule = getmetatable(Proxy)
 Parser.__metatable = "[GAdmin Parser]: Metatable methods are restricted."
 Parser.__type = "GAdmin Parser"
 
+Parser.__Deprecated = {
+	ParseMessage = {
+		Replacement = "Parse",
+		UseNewMethod = true
+	},
+	
+	CheckArgument = {
+		Replacement = "TransformArguments"
+	}
+}
+
 function Parser:__tostring()
 	return self.__type
 end
 
 function Parser:__index(Key)
+	if Parser.__Deprecated[Key] and not Parser.__Deprecated[Key].Warned then
+		Parser.__Deprecated[Key].Warned = true
+		warn(`[GAdmin Parser]: Method :{Key}() is deprecated, {Parser.__Deprecated[Key].UseNewMethod and "automaticly using" or "use"} :{Parser.__Deprecated[Key].Replacement}() instead.`)
+		
+		if Parser.__Deprecated[Key].UseNewMethod then
+			return Parser[Parser.__Deprecated[Key].Replacement]
+		end
+	end
+	
 	return Parser[Key]
 end
 
@@ -117,6 +148,9 @@ function Parser:TriggerCommand(Caller, Command, Arguments, ArgumentsString)
 end
 
 function Parser:TriggerCommands(Caller, MessageData)
+	--== Getting rid of message ==--
+	table.remove(MessageData, 1)
+	
 	local Returns = {}
 	MessageData = MessageData or {}
 	
@@ -131,6 +165,86 @@ function Parser:TriggerCommands(Caller, MessageData)
 	return Returns
 end
 
+--== New way of parsing commands.
+--== Better than :ParseMessage() because is splitting commands by prefix
+--== Worser than :ParseMessage() because prefix is needed.
+
+function Parser:Parse(Caller, Message, IgnoreCustomPrefix)
+	local CustomPrefix = API:GetPrefix(Caller)
+	local Prefix = IgnoreCustomPrefix and Settings.DefaultPrefix or CustomPrefix
+	
+	local RawData = Message:gsub(CustomPrefix, Prefix):split(Prefix)
+	local MessageData = {}
+	
+	for i, Batch in ipairs(RawData) do
+		if Batch:gsub("%s", "") == "" then
+			continue
+		end
+		
+		local Command
+		local LastIndex
+		
+		for i, String in ipairs(Batch:split(" ")) do
+			local IsCommand = i == 1
+			local Offset = #MessageData
+			
+			if String:gsub("%s", "") == "" then
+				continue
+			end
+			
+			if not self:GetCommand(String) and IsCommand and Settings.IncorrectCommandNotify then
+				Signals:Fire("Framework", Caller, "Notify", "Error", `Command '{String}' is not valid.`)
+				break
+			end
+			
+			if Command then
+				table.insert(MessageData[Offset][2], String)
+				continue
+			end
+
+			Command = String
+			local TableData = {Command, {}}
+			table.insert(MessageData, TableData)
+			LastIndex = table.find(MessageData, TableData)
+		end
+	end
+	
+	local BakedData = self:ParseData(Caller, MessageData)
+	return {"This whole table needs to be put into :TriggerCommands() method.", BakedData and unpack(BakedData)}
+end
+
+function Parser:ParseData(Caller, MessageData)
+	for i, Setting in pairs(MessageData) do
+		local Command = Setting[1]
+		local Arguments = Setting[2]
+
+		local Name, Setting = self:GetCommand(Command)
+		if Setting.RequiredRank > API:GetUserRank(Caller) then
+			Signals:Fire("Framework", Caller, "Notify", "Error", `Your rank must be '{API:GetRank(Setting.RequiredRank)}'' or higher.`)
+			return
+		end
+
+		if GlobalAPI:GetServerType() == "Private" and table.find(Settings.PrivateServerBlacklist, Command) and API:GetOwner() ~= Caller.UserId then
+			Signals:Fire("Framework", Caller, "Notify", "Error", `No permission to use command '{Name}' in private servers.`)
+			return
+		end
+
+		local TransformerArguments, Error = self:TransformArguments(Caller, Command, Arguments)
+		if Error then
+			Signals:Fire("Framework", Caller, "Notify", "Error", Error)
+			return
+		end
+
+		MessageData[i][2] = TransformerArguments
+		MessageData[i][3] = Arguments
+	end
+	
+	return MessageData
+end
+
+--== Old way of parsing commands.
+--== Is here because might we might reverse back to it.
+
 function Parser:ParseMessage(Caller, Message, IgnorePrefix)
 	local RawData = Message:split(" ")
 	local MessageData = {}
@@ -140,11 +254,13 @@ function Parser:ParseMessage(Caller, Message, IgnorePrefix)
 	
 	for i, String in ipairs(RawData) do
 		local FormattedString = String:gsub(API:GetPrefix(Caller), "")
-		if FormattedString:gsub("%s", "") == "" or not FormattedString or (not IgnorePrefix and String:sub(1, 1) ~= API:GetPrefix(Caller)) then
+		local NoPrefix = (not IgnorePrefix and not Command and String:sub(1, 1) ~= API:GetPrefix(Caller))
+
+		if FormattedString:gsub("%s", "") == "" or not FormattedString or NoPrefix then
 			continue
 		end
 		
-		if not self:GetCommand(FormattedString) and String:sub(1, 1) == API:GetPrefix(Caller) and Settings.IncorrectCommandNotify then
+		if not self:GetCommand(FormattedString) and not NoPrefix and Settings.IncorrectCommandNotify then
 			Signals:Fire("Framework", Caller, "Notify", "Error", `Command '{FormattedString}' is not valid.`)
 			continue
 		end
@@ -251,7 +367,7 @@ function Parser:TransformArguments(Caller, Command, Arguments)
 
 	local Offset = 0
 	local LastArgument = 1
-
+	
 	for i, Argument in ipairs(Arguments) do
 		if i > #CommandArguments then
 			ParsedArguments[LastArgument] = `{ParsedArguments[LastArgument]} {Argument}`
@@ -260,17 +376,19 @@ function Parser:TransformArguments(Caller, Command, Arguments)
 
 		local RawData = CommandArguments[i + Offset]
 		local CommandArgumentRaw = RawData:split(Data.CommandArgumentsSigns.MultiType)[1]
-		local CommandArgument = CommandArgumentRaw:sub(1, #CommandArgumentRaw - 1)
+		local CommandArgument = CommandArgumentRaw:split(Data.CommandArgumentsSigns.ClassName)[1]:sub(1, #CommandArgumentRaw - 1)
 		local Sign = CommandArgumentRaw:sub(#CommandArgumentRaw, #CommandArgumentRaw)
+		local Class = CommandArgumentRaw:split(Data.CommandArgumentsSigns.ClassName)[2]
 
 		local NextArgumentRaw = CommandArguments[i + Offset + 1] and CommandArguments[i + Offset + 1]:split(Data.CommandArgumentsSigns.MultiType)[1]
-		local NextArgument = NextArgumentRaw and NextArgumentRaw:sub(1, #NextArgumentRaw - 1) or nil
+		local NextArgument = NextArgumentRaw and NextArgumentRaw:split(Data.CommandArgumentsSigns.ClassName)[1]:sub(1, #NextArgumentRaw - 1) or nil
 		local NextSign = NextArgumentRaw and NextArgumentRaw:sub(#CommandArgumentRaw, #CommandArgumentRaw)
+		local NextClass = NextArgumentRaw and NextArgumentRaw:split(Data.CommandArgumentsSigns.ClassName)[2]
 
 		local RequiredRank = Setting.ArgPermissions[i] or 0
 		local Name = Setting.References[i] or CommandArgument
-
-		local RealArgument, Error = Data.ArgumentsTransform[CommandArgument](Caller, Argument, Sign)
+		
+		local RealArgument, Error = Data.ArgumentsTransform[CommandArgument](Caller, Argument, Sign, Class)
 		if Error then
 			return "ERROR", Error
 		end
@@ -280,7 +398,7 @@ function Parser:TransformArguments(Caller, Command, Arguments)
 			LastArgument = i
 
 			ParsedArguments[i] = RealArgument
-			ParsedArguments[i + 1], Error = Data.ArgumentsTransform[NextArgument](Caller, Argument, NextSign)
+			ParsedArguments[i + 1], Error = Data.ArgumentsTransform[NextArgument](Caller, Argument, NextSign, NextClass)
 			
 			if Error then
 				return "ERROR", Error
@@ -321,9 +439,11 @@ function Parser:ParseArguments(Caller, Command, Arguments)
 		local Found = false
 		
 		for i, CommandArgumentRaw in ipairs(MultiType) do
-			local CommandArgument = CommandArgumentRaw:sub(1, #CommandArgumentRaw - 1)
+			local CommandArgument = CommandArgumentRaw:split(Data.CommandArgumentsSigns.ClassName)[1]:sub(1, #CommandArgumentRaw - 1)
 			
 			local Sign = CommandArgumentRaw:sub(#CommandArgumentRaw, #CommandArgumentRaw)
+			local Class = CommandArgumentRaw:split(Data.CommandArgumentsSigns.ClassName)[2]
+			
 			local Optional = Sign == Data.CommandArgumentsSigns.Optional or Sign == Data.CommandArgumentsSigns.OptionalInGame
 			local InGame = Sign == Data.CommandArgumentsSigns.InGame or Sign == Data.CommandArgumentsSigns.OptionalInGame
 			local EqualRank = Sign == Data.CommandArgumentsSigns.EqualRank
@@ -360,13 +480,14 @@ function Parser:ParseArguments(Caller, Command, Arguments)
 		end
 		
 		if not Found then
-			local CommandArgumentRaw = RawData:split(Data.CommandArgumentsSigns.MultiType)[1]
-			local CommandArgument = CommandArgumentRaw:sub(1, #CommandArgumentRaw - 1)
+			local CommandArgumentRaw = CommandArguments[i]:split(Data.CommandArgumentsSigns.MultiType)[1]
+			local CommandArgument = CommandArgumentRaw:split(Data.CommandArgumentsSigns.ClassName)[1]:sub(1, #CommandArgumentRaw - 1)
+			local Class = CommandArgumentRaw:split(Data.CommandArgumentsSigns.ClassName)[2]
 			
 			local Sign = CommandArgumentRaw:sub(#CommandArgumentRaw, #CommandArgumentRaw)
 			local Optional = Sign == Data.CommandArgumentsSigns.Optional or Sign == Data.CommandArgumentsSigns.OptionalInGame
 			
-			if not Optional and (not Setting.UnDo or Name ~= `Un{Setting.Command}`) then
+			if not Class and not Optional and (not Setting.UnDo or Name ~= `Un{Setting.Command}`) then
 				local Name = Setting.References[i] or CommandArgument
 				return "ERROR", `Argument {Name} is not optional.`
 			end
@@ -378,12 +499,13 @@ function Parser:ParseArguments(Caller, Command, Arguments)
 	if #CommandArguments > #ParsedArguments then
 		for i = #ParsedArguments + 1, #CommandArguments do
 			local CommandArgumentRaw = CommandArguments[i]:split(Data.CommandArgumentsSigns.MultiType)[1]
-			local CommandArgument = CommandArgumentRaw:sub(1, #CommandArgumentRaw - 1)
+			local CommandArgument = CommandArgumentRaw:split(Data.CommandArgumentsSigns.ClassName)[1]:sub(1, #CommandArgumentRaw - 1)
+			local Class = CommandArgumentRaw:split(Data.CommandArgumentsSigns.ClassName)[2]
 			
 			local Sign = CommandArguments[i]:sub(#CommandArgumentRaw, #CommandArgumentRaw)
 			local Optional = Sign == Data.CommandArgumentsSigns.Optional or Sign == Data.CommandArgumentsSigns.OptionalInGame
 			
-			if not Optional and (not Setting.UnDo or Name ~= `Un{Setting.Command}`) then
+			if not Class and not Optional and (not Setting.UnDo or Name ~= `Un{Setting.Command}`) then
 				local Name = Setting.References[i] or CommandArgument
 				return "ERROR", `Argument {Name} is not optional.`
 			end
@@ -400,8 +522,6 @@ function Parser:CheckArgument(Command, Argument, Index, Optional)
 	local CommandArguments = Setting.Arguments
 	local CommandArgument = CommandArguments[Index]
 	local RealArgument = Argument
-	
-	warn(`[GAdmin Parser]: CheckArgument method is deprecated.`)
 	
 	return RealArgument
 end
