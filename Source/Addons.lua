@@ -63,7 +63,6 @@ end
 function Addons:Separate(Pack)
 	for System, Parent in pairs(self.__PackSystem) do
 		local ModuleObject = Pack:FindFirstChild(System)
-		print(Pack.Name, System, ModuleObject)
 		if not ModuleObject then
 			continue
 		end
