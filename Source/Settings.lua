@@ -31,6 +31,10 @@ Settings.Ranks = { -- In Users you can put either userid or username.
 	}
 }
 
+--== << HTTP >> ==--
+Settings.HTTPWarn = true -- Determines if warn in the output appear if HttpService isn't enabled or not.
+Settings.UseOldVersion = false -- If loader's version is outdated, you'll still be able to use GAdmin as usual.
+
 --== << NOTIFIES >> ==--
 Settings.NoNotifies = false -- User won't get notifies.
 Settings.NoWarns = false -- User won't get warning notifies.
