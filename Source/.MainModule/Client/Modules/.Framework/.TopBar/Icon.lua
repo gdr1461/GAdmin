@@ -1153,6 +1153,4 @@ function Icon:destroy()
 end
 Icon.Destroy = Icon.destroy
 
-
-
 return Icon :: ModuleType
