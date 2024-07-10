@@ -58,11 +58,9 @@ Data.Access = {}
 
 Data.Updates = {
 	[1] = {
-		Date = "2 July, 2024",
+		Date = "10 July, 2024",
 		Blocks = {
-			"Added TopBarPlus. (Credits to ForeverHD.)",
-			"Added .",
-			"Fixed Parser."
+			"Fixed parser.",
 		}
 	},
 	
