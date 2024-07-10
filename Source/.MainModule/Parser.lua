@@ -177,7 +177,7 @@ function Parser:Parse(Caller, Message, IgnoreCustomPrefix)
 	local MessageData = {}
 	
 	for i, Batch in ipairs(RawData) do
-		if Batch:gsub("%s", "") == "" then
+		if i == 1 or Batch:gsub("%s", "") == "" then
 			continue
 		end
 		
@@ -188,7 +188,7 @@ function Parser:Parse(Caller, Message, IgnoreCustomPrefix)
 			local IsCommand = i == 1
 			local Offset = #MessageData
 			
-			if String:gsub("%s", "") == "" then
+			if String:gsub("%s", "") == ""  then
 				continue
 			end
 			
