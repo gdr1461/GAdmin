@@ -72,7 +72,7 @@ local GAdmin: MainModule = getmetatable(Proxy)
 GAdmin.__metatable = "[GAdmin]: Metatable methods are restricted."
 GAdmin.__type = "GAdmin Main"
 
-GAdmin.__version = "v1.1.3"
+GAdmin.__version = "v1.1.4"
 GAdmin.__LoaderVersion = "v1.0.0"
 
 GAdmin.__PlayerCalls = {}
