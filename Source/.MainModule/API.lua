@@ -126,7 +126,7 @@ function API:CheckUserRank(player)
 	end
 	
 	--== DEFAULT RANK ==--
-	Data.SessionData[player.UserId].ServerRank = Settings.DefaultRank
+	Data.SessionData[player.UserId].ServerRank = Data.SessionData[player.UserId].Rank --Settings.DefaultRank
 	
 	--== PRIVATE SERVER RANK ==--
 	if Settings.PrivateServerOwner then
