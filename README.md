@@ -4,9 +4,10 @@
 - Place it into `ServerScriptService`.
 - Read [wiki](https://github.com/gdr1461/GAdmin/wiki).
 
-# Requirements
-- Usage `DataStoreService`, so it is recommended to set `Enable Studio Access to API Services` to `true`.
-- Optional usage of `HttpService` to let you know if your GAdmin needs an update.
+> [!NOTE]
+> # Requirements
+> - Usage `DataStoreService`, so it is recommended to set `Enable Studio Access to API Services` to `true`.
+> - Optional usage of `HttpService` to let you know if your GAdmin needs an update.
 
 # Settings
 Settings is located at: `GAdminLoader/Settings`.
