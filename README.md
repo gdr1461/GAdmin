@@ -1,5 +1,5 @@
 # How to use?
-- Download [zip](https://github.com/gdr1461/GAdmin/blob/main/GAdminLoader.zip) file.
+- Download [rbxm](https://github.com/gdr1461/GAdmin/blob/main/GAdminLoader.rbxm) file.
 - Unpack it.
 - Place it into `ServerScriptService`.
 - Read [wiki](https://github.com/gdr1461/GAdmin/wiki).
