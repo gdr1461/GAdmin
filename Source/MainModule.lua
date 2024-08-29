@@ -72,7 +72,7 @@ local GAdmin: MainModule = getmetatable(Proxy)
 GAdmin.__metatable = "[GAdmin]: Metatable methods are restricted."
 GAdmin.__type = "GAdmin Main"
 
-GAdmin.__version = "v1.1.4"
+GAdmin.__version = "v1.2.0"
 GAdmin.__LoaderVersion = "v1.0.0"
 
 GAdmin.__PlayerCalls = {}
@@ -178,12 +178,12 @@ GAdmin.GetDataActions = {
 			return "Error", "Your rank is lower than required."
 		end
 		
-		local Reject, Error = API:UnBan(Caller, UserId)
+		local Reject, Error = API:UnBan(UserId)
 		if Reject then
 			return "Error", Error
 		end
 
-		return "Notify", `{Players:GetNameFromUserIdAsync(UserId)} succefully banned.`
+		return "Notify", `{Players:GetNameFromUserIdAsync(UserId)} succefully unbanned.`
 	end,
 	
 	GetBanlist = function(Caller)
@@ -274,6 +274,7 @@ GAdmin.__Topics = {
 	end,
 	
 	GlobalMessage = function(Caller, Title, Message)
+		print(Caller, Title, Message)
 		Signals:FireAll("Framework", "Announce", Title, Message)
 	end,
 }
@@ -281,6 +282,10 @@ GAdmin.__Topics = {
 --== METATABLE METHODS ==--
 function GAdmin:__tostring()
 	return self.__type, self.__version
+end
+
+function GAdmin:__call()
+	return GAdmin
 end
 
 function GAdmin:__index(Key)
@@ -318,6 +323,14 @@ function GAdmin:Configure(LoaderVersion)
 	--== CREATING GARBAGE BIN ==--
 	Data.BinFolder.Name = "GAdmin Bin"
 	Data.BinFolder.Parent = game.ReplicatedStorage
+	
+	--== CREATING CHAT COMMANDS ==--
+	Data.ChatCommandFolder.Name = "GAdmin Commands"
+	Data.ChatCommandFolder.Parent = game.ReplicatedStorage
+	
+	for i, Command in ipairs(Commands) do
+		Parser:SetChatCommand(Command.Command, Settings.AutoCompleteChatCommands)
+	end
 	
 	local GlobalAPI = require(Data.ClientFolder.SharedModules.GlobalAPI)
 	local function ConfigurePlayer(player)
@@ -516,12 +529,13 @@ function GAdmin:Configure(LoaderVersion)
 		Data.SessionData[player.UserId][Setting] = Value
 	end)
 	
-	MessagingService:SubscribeAsync(Settings.Topics.Global, function(Data)
-		if not self.__Topics[Data.Data.Topic] then
+	local Connection = MessagingService:SubscribeAsync(Settings.Topics.Global, function(MessageData)
+		print(MessageData)
+		if not self.__Topics[MessageData.Data.Topic] then
 			return
 		end
 		
-		self.__Topics[Data.Data.Topic](Data.Sent, unpack(Data.Data.Arguments))
+		self.__Topics[MessageData.Data.Topic](MessageData.Sent, unpack(MessageData.Data.Arguments))
 	end)
 	
 	self.__Configured = true
