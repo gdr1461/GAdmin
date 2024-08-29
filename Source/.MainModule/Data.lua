@@ -35,6 +35,7 @@ Data.CommandArgumentsSigns = {
 	OptionalInGame = "@",
 	FilterString = "#",
 	EqualRank = "+",
+	ClassName = ":"
 }
 
 Data.DefaultArguments = {
@@ -113,9 +114,9 @@ Data.ArgumentsTransform = {
 		return Player
 	end,
 	
-	Object = function(Caller, String)
+	Object = function(Caller, String, Sign, Class)
 		for i, Part in ipairs(workspace:GetDescendants()) do
-			if Part.Name:sub(1, #String):lower() ~= String:lower() then
+			if Part.Name:sub(1, #String):lower() ~= String:lower() or (Class and Part.ClassName:lower() ~= Class:lower()) then
 				continue
 			end
 			
@@ -126,7 +127,7 @@ Data.ArgumentsTransform = {
 	Tool = function(Caller, String)
 		for i, Tool in ipairs(Data.Tools) do
 			local SecondName = Tool:GetAttribute("SecondName")
-			if Tool.Name:lower():sub(1, #String) ~= String:lower() and (SecondName and SecondName:lower() ~= String:lower()) then
+			if Tool.Name:lower():sub(1, #String) ~= String:lower() or (SecondName ~= nil and SecondName:lower():sub(1, #String) ~= String:lower()) then
 				continue
 			end
 			
@@ -155,7 +156,7 @@ Data.ArgumentsTransform = {
 	Stat = function(Caller, String)
 		local Object
 		for i, Part in ipairs(Caller:GetDescendants()) do
-			if not Part:IsA("NumberValue") and not Part:IsA("IntValue") and Part.Name:sub(1, #String):lower() ~= String:lower() then
+			if (not Part:IsA("NumberValue") and not Part:IsA("IntValue")) or Part.Name:sub(1, #String):lower() ~= String:lower() then
 				continue
 			end
 			
@@ -190,9 +191,9 @@ Data.ArgumentsTransform = {
 Data.IgnoreClasses = {"Object"}
 
 Data.ClientCommandsList = {}
-Data.ClientFolder = script.Parent.Parent.Parent.Client
+Data.ClientFolder = script.Parent.Client
 
 Data.BinFolder = Instance.new("Folder")
-Data.ServerFolder = script.Parent.Parent
+Data.ChatCommandFolder = Instance.new("Folder")
 
 return Data
