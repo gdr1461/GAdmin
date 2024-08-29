@@ -10,6 +10,7 @@ export type ParserModule = {
 		}
 	},
 	
+	SetChatCommand: (self: ParserModule, Name: string, AutoComplete: boolean?) -> TextChatCommand,
 	Parse: (self: ParserModule, Caller: Player, Message: string) -> {any},
 	ParseData: (self: ParserModule, Caller: Player, MessageData: {any}) -> {any},
 	
@@ -22,6 +23,9 @@ export type ParserModule = {
 	TransformArguments: (self: ParserModule, Caller: Player, Command: string, Arguments:{any}) -> {any},
 	ParseArguments: (self: ParserModule, Caller: Player, Command: string, Arguments: {any}) -> (),
 }
+
+local TextChatService = game:GetService("TextChatService")
+local TextService = game:GetService("TextService")
 
 local Commands = require(script.Parent.Commands)
 local API = require(script.Parent.API)
@@ -69,6 +73,37 @@ end
 
 function Parser:__newindex(Key)
 	warn(`[GAdmin Parser]: No access to set new value {Key}.`)
+end
+
+function Parser:SetChatCommand(Name, AutoComplete)
+	if AutoComplete == nil then
+		AutoComplete = true
+	end
+	
+	local CommandName, Command = self:GetCommand(Name)
+	if not Command or Command.DisableChat then
+		return
+	end
+	
+	local ChatCommand = Instance.new("TextChatCommand")
+	ChatCommand.Name = Command.Command
+	
+	ChatCommand.AutocompleteVisible = AutoComplete
+	ChatCommand.PrimaryAlias = `/{Command.Command:lower()}`
+	ChatCommand.SecondaryAlias = Command.UnDo and `/un{Command.Command:lower()}` or ""
+
+	ChatCommand.Triggered:Connect(function(Source, Message)
+		local player = game.Players:GetPlayerByUserId(Source.UserId)
+		Message = Data.SessionData[player.UserId].Prefix..Message:sub(2, #Message)
+		
+		local MessageData = self:Parse(player, Message)
+		self:TriggerCommands(player, MessageData)
+	end)
+
+	ChatCommand.Enabled = true
+	ChatCommand.Parent = Data.ChatCommandFolder
+	
+	return ChatCommand
 end
 
 function Parser:TriggerCommand(Caller, Command, Arguments, ArgumentsString)
