@@ -326,7 +326,7 @@ function GAdmin:Configure(LoaderVersion)
 	
 	--== CREATING CHAT COMMANDS ==--
 	Data.ChatCommandFolder.Name = "GAdmin Commands"
-	Data.ChatCommandFolder.Parent = game.ReplicatedStorage
+	Data.ChatCommandFolder.Parent = game:GetService("TextChatService")
 	
 	for i, Command in ipairs(Commands) do
 		Parser:SetChatCommand(Command.Command, Settings.AutoCompleteChatCommands)
