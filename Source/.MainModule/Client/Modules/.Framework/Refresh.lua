@@ -10,6 +10,8 @@ local Data = require(Modules.Data)
 
 local Commands = require(Modules.Framework.Commands)
 local BanHandler = require(Modules.Framework.BanHandler)
+
+local SendHandler = require(Modules.Framework.SendHandler)
 local Refresh = {}
 
 Refresh.AdminFrame = {
@@ -207,6 +209,10 @@ Refresh.AboutFrame = {
 
 Refresh.BanFrame = function(Frame)
 	BanHandler.Refresh()
+end
+
+Refresh.SendFrame = function(Frame)
+	SendHandler.Refresh()
 end
 
 Refresh.CommandFrame = function(Frame)
