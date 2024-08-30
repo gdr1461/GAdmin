@@ -58,6 +58,18 @@ export type InputWindowControls = {
 	ClickButton: () -> (),
 }
 
+export type MarkdownData = {
+	Button: TextButton,
+	State: boolean,
+	ChangeState: (self: MarkdownData, Boolean: boolean) -> ()
+}
+
+export type HoverData = {
+	Gui: ScreenGui,
+	Info: string,
+	Object: GuiObject,
+}
+
 export type WindowData = {
 	Size: "Small" | "Normal" | "Big" | "Giant",
 
@@ -263,7 +275,15 @@ export type ClientAPI = {
 	GetTopBar: (self: ClientAPI) -> TopBarPlusTypes.IconType,
 	TopBarEnabled: (self: ClientAPI, Enabled: boolean) -> (),
 	
+	ConvertUDim: (self: ClientAPI, Mode: "Scale" | "Offset", Udim: UDim2) -> UDim2,
+	GetFrameMousePosition: (self: ClientAPI, Gui: ScreenGui, Frame: GuiObject, Offset: {X: number, Y: number}) -> UDim2,
+	
 	Notify: (self: ClientAPI, Type: "Notify" | "Error" | "Warn", Text: string, Timer: number?, OnInteract: () -> ()?) -> {any},
+	CreateHoverInfo: (self: ClientAPI, Object: GuiObject, Info: string) -> HoverData,
+	
+	GetMarkdown: (self: ClientAPI, Button: TextButton) -> MarkdownData,
+	CreateMarkdown: (self: ClientAPI, Button: TextButton, OnActivated: (State: boolean) -> (), Info: string?) -> MarkdownData,
+	
 	CreateWindow: (self: ClientAPI, Title: string, Data: WindowData) -> Frame,
 	CreateInputWindow: (self: APIModule, Title: string, Data: InputWindowData) -> Frame,
 	
