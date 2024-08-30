@@ -4,6 +4,7 @@ local Modules = Client.Modules
 local SharedModules = Client.SharedModules
 local Signals = require(SharedModules.Signals)
 
+local API = require(Modules.ClientAPI)
 local UI = require(Modules.UI)
 local Gui = UI:GetGui()
 
@@ -43,11 +44,10 @@ function BanHandler.Start()
 	ReasonBox.FocusLost:Connect(function()
 		BanHandler.Reason = ReasonBox.Text
 	end)
-	
-	BanHandler.Frame.IPBan.Activated:Connect(function()
-		BanHandler.IPBan = not BanHandler.IPBan
-		BanHandler.Frame.IPBan.Text = BanHandler.IPBan and "X" or ""
-	end)
+
+	API:CreateMarkdown(BanHandler.Frame.IPBan, function(State)
+		BanHandler.IPBan = State
+	end, "IP bans player.")
 end
 
 function BanHandler.Refresh()
@@ -57,7 +57,10 @@ function BanHandler.Refresh()
 	
 	BanHandler.Frame.User.TextBox.Text = ""
 	BanHandler.Frame.Reason.TextBox.Text = ""
-	BanHandler.Frame.IPBan.Text = ""
+	
+	if API:GetMarkdown(BanHandler.Frame.IPBan) then
+		API:GetMarkdown(BanHandler.Frame.IPBan):ChangeState(false)
+	end
 	
 	for i, TextBox in ipairs(BanHandler.Frame.Time.TextBoxes:GetChildren()) do
 		if not TextBox:IsA("TextBox") then
