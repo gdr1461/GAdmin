@@ -72,7 +72,7 @@ local GAdmin: MainModule = getmetatable(Proxy)
 GAdmin.__metatable = "[GAdmin]: Metatable methods are restricted."
 GAdmin.__type = "GAdmin Main"
 
-GAdmin.__version = "v1.2.0"
+GAdmin.__version = "v1.2.1"
 GAdmin.__LoaderVersion = "v1.0.0"
 
 GAdmin.__PlayerCalls = {}
@@ -139,6 +139,27 @@ GAdmin.GetDataActions = {
 		end
 
 		return Info
+	end,
+	
+	SendTo = function(Caller, UserId, Message, GameWide, FromPlayer)
+		local Name, CommandData = Parser:GetCommand("SendTo")
+		if Data.SessionData[Caller.UserId].ServerRank < CommandData.RequiredRank then
+			return "Error", "Your rank is lower than required."
+		end
+		
+		API:PushMessage({
+			Topic = "SendTo",
+			Arguments = {
+				{
+					UserId = UserId,
+					Message = Message,
+					GameWide = GameWide,
+					FromPlayer = FromPlayer,
+				}
+			}
+		})
+		
+		return "Notify", "Your command is successfully sent."
 	end,
 	
 	Ban = function(Caller, UserId, Reason, Duration, IpBan)
@@ -240,6 +261,22 @@ GAdmin.GetDataActions = {
 }
 
 GAdmin.__Topics = {
+	SendTo = function(Caller, MessageData)
+		print(Caller, MessageData)
+		for i, player in ipairs(Players:GetPlayers()) do
+			if not MessageData.GameWide and player.UserId ~= tonumber(MessageData.UserId, 10) then
+				continue
+			end
+			
+			if MessageData.FromPlayer and not MessageData.GameWide then
+				MessageData.Message = MessageData.Message:gsub("me", player.Name)
+			end
+			
+			Parser:FromMessage(MessageData.Message)
+			break
+		end
+	end,
+	
 	Ban = function(Caller, MessageData)
 		for i, player in ipairs(Players:GetPlayers()) do
 			if player.UserId ~= tonumber(MessageData.UserId, 10) then
@@ -274,7 +311,6 @@ GAdmin.__Topics = {
 	end,
 	
 	GlobalMessage = function(Caller, Title, Message)
-		print(Caller, Title, Message)
 		Signals:FireAll("Framework", "Announce", Title, Message)
 	end,
 }
@@ -486,6 +522,12 @@ function GAdmin:Configure(LoaderVersion)
 	end
 	
 	--== SETTING GADMIN ON PLAYER ==--
+	if #Players:GetPlayers() > 0 then
+		for i, player in ipairs(Players:GetPlayers()) do
+			coroutine.wrap(ConfigurePlayer)(player)
+		end
+	end
+	
 	Players.PlayerAdded:Connect(ConfigurePlayer)
 	Players.PlayerRemoving:Connect(function(player)
 		self:ClearConnections("Listeners", player.UserId)
@@ -530,7 +572,6 @@ function GAdmin:Configure(LoaderVersion)
 	end)
 	
 	local Connection = MessagingService:SubscribeAsync(Settings.Topics.Global, function(MessageData)
-		print(MessageData)
 		if not self.__Topics[MessageData.Data.Topic] then
 			return
 		end
