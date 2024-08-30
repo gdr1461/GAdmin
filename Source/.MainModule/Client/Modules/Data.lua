@@ -56,15 +56,25 @@ Data.Rank = {
 Data.NotifySettings = {}
 Data.Access = {}
 
+Data.ChatCommandsFolder = game:GetService("TextChatService"):WaitForChild("GAdmin Commands")
+Data.ChatCommands = {}
+
 Data.Updates = {
-	[1] = {
+	{
+		Date = "29 August, 2024",
+		Blocks = {
+			"Added slash commands.",
+		}
+	},
+	
+	{
 		Date = "10 July, 2024",
 		Blocks = {
 			"Fixed parser.",
 		}
 	},
 	
-	[2] = {
+	{
 		Date = "29 June, 2024",
 		Blocks = {
 			"Added API Bans",
