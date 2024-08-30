@@ -38,6 +38,7 @@ Settings.NoErrors = false -- User won't get error notifies.
 Settings.IncorrectCommandNotify = true -- Warn user about trying to call non existing command.
 
 --== << ACCESS >> ==--
+Settings.AutoCompleteChatCommands = true -- Slash commands will be auto completed.
 Settings.AdminAccess = 1 -- Required rank for Gui to work for player. Make nil for free access.
 Settings.IPBanAccess = 4 -- Required  rank for IP bans.
 
