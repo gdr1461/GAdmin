@@ -11,6 +11,8 @@ export type ParserModule = {
 	},
 	
 	SetChatCommand: (self: ParserModule, Name: string, AutoComplete: boolean?) -> TextChatCommand,
+	FromMessage: (self: ParserModule, Message: string, Caller: Player?) -> (),
+	
 	Parse: (self: ParserModule, Caller: Player, Message: string) -> {any},
 	ParseData: (self: ParserModule, Caller: Player, MessageData: {any}) -> {any},
 	
@@ -106,11 +108,16 @@ function Parser:SetChatCommand(Name, AutoComplete)
 	return ChatCommand
 end
 
+function Parser:FromMessage(Message, Caller)
+	local MessageData = self:Parse(Caller, Message)
+	return self:TriggerCommands(Caller, MessageData)
+end
+
 function Parser:TriggerCommand(Caller, Command, Arguments, ArgumentsString)
 	Settings.CommandsPerMinute = Settings.CommandsPerMinute or 5
-	Data.TempData[Caller.UserId].Commands += 1
+	if Caller then Data.TempData[Caller.UserId].Commands += 1 end
 	
-	if Settings.CommandDebounce and Data.TempData[Caller.UserId].Commands >= Settings.CommandsPerMinute then
+	if Caller and Settings.CommandDebounce and Data.TempData[Caller.UserId].Commands >= Settings.CommandsPerMinute then
 		Signals:Fire("Framework", Caller, "Notify", "Error", "Command per minute limit exceeded.")
 		return
 	end
@@ -119,9 +126,9 @@ function Parser:TriggerCommand(Caller, Command, Arguments, ArgumentsString)
 	local PlayerAllIndex = table.find(Arguments, "PlayerAll")
 	
 	table.insert(Data.Logs, {
-		User = Caller,
+		User = Caller or "[Server]",
 		Time = tostring(DateTime.now().UnixTimestamp),
-		Command = `{API:GetPrefix(Caller)}{Name}`,
+		Command = `{Caller and API:GetPrefix(Caller) or ";"}{Name}`,
 		ArgumentsString = ArgumentsString or "[Server Call]",
 		Arguments = Arguments,
 	})
@@ -205,7 +212,7 @@ end
 --== Worser than :ParseMessage() because prefix is needed.
 
 function Parser:Parse(Caller, Message, IgnoreCustomPrefix)
-	local CustomPrefix = API:GetPrefix(Caller)
+	local CustomPrefix = Caller and API:GetPrefix(Caller) or ";"
 	local Prefix = IgnoreCustomPrefix and Settings.DefaultPrefix or CustomPrefix
 	
 	local RawData = Message:gsub(CustomPrefix, Prefix):split(Prefix)
@@ -228,6 +235,11 @@ function Parser:Parse(Caller, Message, IgnoreCustomPrefix)
 			end
 			
 			if not self:GetCommand(String) and IsCommand and Settings.IncorrectCommandNotify then
+				if not Caller then
+					warn(`[GAdmin Parser]: Command '{String}' is not valid.`)
+					break
+				end
+				
 				Signals:Fire("Framework", Caller, "Notify", "Error", `Command '{String}' is not valid.`)
 				break
 			end
@@ -254,18 +266,23 @@ function Parser:ParseData(Caller, MessageData)
 		local Arguments = Setting[2]
 
 		local Name, Setting = self:GetCommand(Command)
-		if Setting.RequiredRank > API:GetUserRank(Caller) then
+		if Setting.RequiredRank > (Caller and API:GetUserRank(Caller) or 6) then
 			Signals:Fire("Framework", Caller, "Notify", "Error", `Your rank must be '{API:GetRank(Setting.RequiredRank)}'' or higher.`)
 			return
 		end
 
-		if GlobalAPI:GetServerType() == "Private" and table.find(Settings.PrivateServerBlacklist, Command) and API:GetOwner() ~= Caller.UserId then
+		if Caller and GlobalAPI:GetServerType() == "Private" and table.find(Settings.PrivateServerBlacklist, Command) and API:GetOwner() ~= Caller.UserId then
 			Signals:Fire("Framework", Caller, "Notify", "Error", `No permission to use command '{Name}' in private servers.`)
 			return
 		end
 
 		local TransformerArguments, Error = self:TransformArguments(Caller, Command, Arguments)
 		if Error then
+			if not Caller then
+				warn(`[GAdmin Parser]: {Error}`)
+				return
+			end
+			
 			Signals:Fire("Framework", Caller, "Notify", "Error", Error)
 			return
 		end
@@ -443,7 +460,7 @@ function Parser:TransformArguments(Caller, Command, Arguments)
 			continue
 		end
 
-		if Data.SessionData[Caller.UserId].ServerRank < RequiredRank then
+		if (Caller and Data.SessionData[Caller.UserId].ServerRank or 6) < RequiredRank then
 			return "ERROR", `You need to be '{API:GetRank(RequiredRank)}' to use argument '{Name}'.`
 		end
 
