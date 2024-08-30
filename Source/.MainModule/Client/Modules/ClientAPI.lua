@@ -1,3 +1,4 @@
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Client = script.Parent.Parent
 
@@ -63,6 +64,18 @@ export type InputWindowData = {
 	OnRemove: (WindowControls: InputWindowControls) -> (),
 }
 
+export type MarkdownData = {
+	Button: TextButton,
+	State: boolean,
+	ChangeState: (self: MarkdownData, Boolean: boolean) -> ()
+}
+
+export type HoverData = {
+	Gui: ScreenGui,
+	Info: string,
+	Object: GuiObject,
+}
+
 export type APIModule = {
 	__metatable: string,
 	__type: string,
@@ -83,7 +96,14 @@ export type APIModule = {
 	GetTopBar: (self: APIModule) -> Icon.IconType,
 	TopBarEnabled: (self: APIModule, Enabled: boolean) -> (),
 	
+	ConvertUDim: (self: APIModule, Mode: "Scale" | "Offset", Udim: UDim2) -> UDim2,
+	GetFrameMousePosition: (self: APIModule, Gui: ScreenGui, Frame: GuiObject, Offset: {X: number, Y: number}) -> UDim2,
 	Notify: (self: APIModule, Type: "Notify" | "Error" | "Warn", Text: string, Timer: number?, OnInteract: () -> ()?) -> {any},
+	
+	CreateHoverInfo: (self: APIModule, Object: GuiObject, Info: string) -> HoverData,
+	GetMarkdown: (self: APIModule, Button: TextButton) -> MarkdownData,
+	CreateMarkdown: (self: APIModule, Button: TextButton, OnActivated: (State: boolean) -> (), Info: string?) -> MarkdownData,
+	
 	CreateWindow: (self: APIModule, Title: string, Data: WindowData) -> Frame,
 	CreateInputWindow: (self: APIModule, Title: string, Data: InputWindowData) -> Frame,
 	
@@ -109,6 +129,25 @@ ClientAPI.__InputWindowSizes = {
 	Normal = UDim2.new(.2, 0, .2, 0)
 }
 
+ClientAPI.__Markdowns = {}
+ClientAPI.__Hovers = {}
+
+ClientAPI.__HoverInstance = UI:GetGui().Info
+ClientAPI.__CurrentHover = nil
+
+RunService.RenderStepped:Connect(function()
+	local HoverData = ClientAPI.__Hovers[ClientAPI.__CurrentHover]
+	ClientAPI.__HoverInstance.Text = HoverData.Info
+	
+	local Position = ClientAPI:GetFrameMousePosition(HoverData.Gui, ClientAPI.__HoverInstance, {
+		X = 7,
+		Y = 75
+	})
+	
+	ClientAPI.__HoverInstance.Position = ClientAPI:ConvertUDim("Scale", Position)
+	ClientAPI.__HoverInstance.Visible = ClientAPI.__CurrentHover ~= nil
+end)
+
 function ClientAPI:__tostring()
 	return self.__type
 end
@@ -117,8 +156,32 @@ function ClientAPI:__index(Key)
 	return ClientAPI[Key]
 end
 
-function ClientAPI:__newindex(Key)
+function ClientAPI:__newindex(Key, Value)
+	if table.find({"__CurrentHover"}, Key) then
+		ClientAPI[Key] = Value
+		return
+	end
+	
 	warn(`[GAdmin ClientAPI]: No access to set new value {Key}.`)
+end
+
+function ClientAPI:ConvertUDim(Mode, Udim)
+	if Mode == "Scale" then
+		local ViewPortSize = workspace.Camera.ViewportSize
+		return UDim2.new(Udim.X.Offset / ViewPortSize.X, 0, Udim.Y.Offset / ViewPortSize.Y, 0)
+	end
+	
+	local ViewPortSize = workspace.Camera.ViewportSize
+	return UDim2.new(0, Udim.X.Scale * ViewPortSize.X, 0, Udim.Y.Scale * ViewPortSize.Y)
+end
+
+function ClientAPI:GetFrameMousePosition(Gui, Frame, Offset)
+	Offset = Offset or {}
+	Offset.X = Offset.X or 0
+	Offset.Y = Offset.Y or 0
+	
+	local Mouse = game.Players.LocalPlayer:GetMouse()
+	return UDim2.fromOffset(Mouse.X + Offset.X, Mouse.Y + Offset.Y)
 end
 
 function ClientAPI:GetTopBarPlus()
@@ -126,6 +189,7 @@ function ClientAPI:GetTopBarPlus()
 end
 
 function ClientAPI:GetTopBar()
+	repeat task.wait() until TopBar.Reference
 	return TopBar.Reference
 end
 
@@ -142,6 +206,60 @@ function ClientAPI:Notify(Type, Text, Timer, OnInteract)
 	local Notification = Notify.Create(Text, Timer)
 	Notification:OnInteract(OnInteract)
 	return Notification
+end
+
+function ClientAPI:CreateHoverInfo(Object, Text)
+	self.__Hovers[Object] = {
+		Gui = Object:FindFirstAncestorWhichIsA("ScreenGui"),
+		Info = Text,
+		Object = Object
+	}
+	
+	Object.MouseEnter:Connect(function()
+		self.__CurrentHover = Object
+	end)
+	
+	Object.MouseLeave:Connect(function()
+		if self.__CurrentHover ~= Object then
+			return
+		end
+		
+		self.__CurrentHover = nil
+	end)
+	
+	return self.__Hovers[Object]
+end
+
+function ClientAPI:GetMarkdown(Button)
+	return self.__Markdowns[Button]
+end
+
+function ClientAPI:CreateMarkdown(Button, OnActivated, Info)
+	self.__Markdowns[Button] = {
+		Button = Button,
+		
+		State = true,
+		ChangeState = function(self, Boolean)
+			if Boolean == nil then
+				Boolean = not self.State
+			end
+			
+			self.State = Boolean
+			Button.Text = self.State and "X" or ""
+		end,
+	}
+	
+	Button.Activated:Connect(function()
+		Sounds:Play("Button", "Interact")
+		self.__Markdowns[Button]:ChangeState()
+		OnActivated(self.__Markdowns[Button].State)
+	end)
+	
+	if Info then
+		self:CreateHoverInfo(Button, Info)
+	end
+	
+	return self.__Markdowns[Button]
 end
 
 function ClientAPI:CreateWindow(Title, Data)
