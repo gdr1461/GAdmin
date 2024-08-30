@@ -24,6 +24,7 @@ local Notify = require(script.Notify)
 
 local Commands = require(script.Commands)
 local BanHandler = require(script.BanHandler)
+local SendHandler = require(script.SendHandler)
 
 local Announce = require(script.Announce)
 local TopBar = require(script.TopBar)
@@ -67,6 +68,7 @@ export type MainFramework = {
 	CloseAll: (self: MainFramework, Class: GuiObject) -> (),
 }
 
+_G.GFramework = script
 local Proxy = newproxy(true)
 local Framework: MainFramework = getmetatable(Proxy)
 
@@ -95,6 +97,10 @@ function Framework:__tostring()
 	return self.__type
 end
 
+function Framework:__call()
+	return Framework
+end
+
 function Framework:__index(Key)
 	return Framework[Key]
 end
@@ -120,10 +126,10 @@ function Framework:Configure()
 	
 	--== REFRESHING BANLIST ==--
 	coroutine.wrap(function()
-		Data.Banlist = Signals:Fire("GetData", "GetBanlist")
+		Data.Banlist = Signals:Fire("GetData", "API", "GetBanlist")
 		
 		while task.wait(120) do
-			Data.Banlist = Signals:Fire("GetData", "GetBanlist")
+			Data.Banlist = Signals:Fire("GetData", "API", "GetBanlist")
 		end
 	end)()
 	
@@ -153,13 +159,6 @@ function Framework:Configure()
 	--== SETTING UP TOPBAR PLUS ==--
 	
 	local Icon = TopBar:Create()
-	TopBar:Bind(function(Icon, Opened)
-		if not Opened then
-			return
-		end
-		
-		self:CurrentFrame()
-	end)
 	
 	--== SETTING UP USER RANK UPDATE ==--
 	Signals:Connect("RankUpdate", function(Rank)
@@ -306,6 +305,18 @@ function Framework:Configure()
 		BlankSpace.LayoutOrder = #UpdatesFrame.List:GetChildren() + UpdateOffset
 		BlankSpace.Parent = UpdatesFrame.List
 	end
+	
+	--== SEND SECTION ==--
+	SendHandler.Start()
+	SendHandler.Frame.Submit.Activated:Connect(function()
+		if not SendHandler.UserId and not SendHandler.GameWide then
+			return
+		end
+		
+		self:Notify(Signals:Fire("GetData", "SendTo", SendHandler.UserId, SendHandler.Text, SendHandler.GameWide, SendHandler.FromPlayer))
+		self.__Current = "Main"
+		self:CurrentFrame()
+	end)
 	
 	--== BAN SECTION ==--
 	BanHandler.Start()
@@ -731,8 +742,8 @@ function Framework:OpenFrame(Frame, Page)
 	
 	self.__Current = Frame.Name
 	local Pages = Frame:FindFirstChild("Pages")
-	Page = Page or 1
 	
+	Page = Page or 1
 	if Pages and Page then
 		self.__CurrentPage = Page
 		Pages[tostring(Page, 10)].Visible = true
@@ -775,15 +786,8 @@ function Framework:GetGui()
 	return UI:GetGui()
 end
 
-function Framework:Notify(Type, Text, Timer, OnInteract)
-	if (Type == "Notify" and not Data.NotifySettings.Default) or (Type == "Warn" and not Data.NotifySettings.Warn) or (Type == "Error" and not Data.NotifySettings.Error) then
-		return
-	end
-	
-	Sounds:Play("Notify", Type)
-	local Notification = Notify.Create(Text, Timer)
-	Notification:OnInteract(OnInteract)
-	return Notification
+function Framework:Notify(...)
+	return ClientAPI:Notify(...)
 end
 
 return Proxy :: MainFramework
