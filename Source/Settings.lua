@@ -82,8 +82,4 @@ Settings.DataStores = { -- DataStore names.
 	PlayerData = "GAdmin PlayerData",
 }
 
-Settings.Topics = { -- Topics for MessagingService.
-	Global = "GAdmin Callback"
-}
-
 return Settings
