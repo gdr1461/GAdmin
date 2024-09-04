@@ -24,6 +24,8 @@ Argument signs:
  [@]: Optional player must be online;
  [#]: If string, filter;
  [+]: Rank cannot be higher or equal to player's rank;
+ [:CLASS]: Object must be **Class**. (Example: "Object:Folder");
+ [|]: One argument can be multiple argument types. (Example: "string;|number;|Stat;");
 ]]
 
 --[[
@@ -33,6 +35,7 @@ Argument signs:
 	Alias: {"OtherName"},  -- Other names of the command.
 	
 	UppercaseMatters: boolean, -- Will uppercase matter when typing out the command or not.
+	DisableChat = false, -- Determines if built-in command system in default roblox chat will be used for the command.
 	Loop: boolean, -- Determines if command will be re-runned after player's death.
 	
 	Client: boolean, -- Returns command to the client.
@@ -43,7 +46,9 @@ Argument signs:
 	References: {"Player", "Reason", "Time"}, -- Name of the arguments in the gui Commands section.
 	ArgPermissions = {3, 2, 1} -- Required rank to actually use arguments of the command. (Place in the same order as your arguments.)
 	
+	Revoke: {"unname"}, -- If UnDo is specified, these alias will trigger the undo of the command.
 	UnDo: (Caller: Player, Argumentss: {any}) -> any, -- Undo function of command. Leave as 'true' for ClientOnly commands. All arguments are optional.
+	
 	Function: (Caller: Player, Arguments: {any}) -> any, -- Main function of command.
 	PreFunction: (Caller: Player, Arguments: {any}) -> any, -- Runs before the main function of the command.
 }
@@ -233,6 +238,20 @@ local Commands = {
 		References = {"Player"},
 		ArgPermissions = {2},
 
+		Revoke = {"Visible", "Vis"},
+		UnDo = function(Caller, Arguments)
+			local player = Arguments[1]
+			local Character = player.Character or player.CharacterAdded:Wait()
+
+			for i, Part in ipairs(Character:GetDescendants()) do
+				if not Part:IsA("BasePart") or Part.Name == "HumanoidRootPart" then
+					continue
+				end
+
+				Part.Transparency = 0
+			end
+		end,
+
 		Function = function(Caller, Arguments)
 			local player = Arguments[1]
 			local Character = player.Character or player.CharacterAdded:Wait()
@@ -242,31 +261,6 @@ local Commands = {
 					continue
 				end
 				
-				Part.Transparency = 1
-			end
-		end,
-	},
-	
-	{
-		Command = "Visible",
-		RequiredRank = 1,
-		Alias = {"Vis"},
-		UppercaseMatters = false,
-		Client = true,
-
-		Arguments = {"Player@"},
-		References = {"Player"},
-		ArgPermissions = {2},
-
-		Function = function(Caller, Arguments)
-			local player = Arguments[1]
-			local Character = player.Character or player.CharacterAdded:Wait()
-
-			for i, Part in ipairs(Character:GetDescendants()) do
-				if not Part:IsA("BasePart") or Part.Name == "HumanoidRootPart" then
-					continue
-				end
-
 				Part.Transparency = 1
 			end
 		end,
@@ -346,6 +340,7 @@ local Commands = {
 		References = {"Player"},
 		ArgPermissions = {2},
 		
+		Revoke = {"UnGod"},
 		UnDo = function(Caller, Arguments)
 			local player = Arguments[1]
 			if not Data.TempData[player.UserId].God then
@@ -402,6 +397,8 @@ local Commands = {
 		Arguments = {"Player@"},
 		References = {"Player"},
 		ArgPermissions = {},
+		
+		Revoke = {"UnFly", "UnFlight"},
 		UnDo = true
 	},
 	
@@ -417,6 +414,8 @@ local Commands = {
 		Arguments = {"Player@"},
 		References = {"Player"},
 		ArgPermissions = {},
+		
+		Revoke = {"UnClip", "Clip"},
 		UnDo = true
 	},
 	
@@ -529,13 +528,13 @@ local Commands = {
 		Client = false,
 		ClientOnly = false,
 
-		Arguments = {"Player@", "Player;"},
-		References = {"Player", "Player2"},
+		Arguments = {"Player;", "Player@"},
+		References = {"Player", "ToPlayer"},
 		ArgPermissions = {},
 
 		Function = function(Caller, Arguments)
-			local player = Arguments[1]
-			local ToPlayer = Arguments[2]
+			local ToPlayer = Arguments[1]
+			local player = Arguments[2]
 
 			player.Character:PivotTo(ToPlayer.Character:GetPivot() * CFrame.new(0, 0, -3) * CFrame.Angles(0, math.rad(180), 0))
 		end,
@@ -637,6 +636,7 @@ local Commands = {
 		ArgPermissions = {},
 		Loop = true,
 		
+		Revoke = {"UnPermGive", "UnPermTool"},
 		UnDo = function(Caller, Arguments)
 			local player = Arguments[1]
 		end,
@@ -733,6 +733,31 @@ local Commands = {
 	},
 	
 	{
+		Command = "UnBan",
+		RequiredRank = 3,
+		Alias = {"UnbanPlayer"},
+		UppercaseMatters = false,
+		Client = false,
+
+		Arguments = {"Player;"},
+		References = {"Player"},
+		ArgPermissions = {},
+
+		Function = function(Caller, Arguments)
+			local player = Arguments[1]
+			local UserId = type(player) == "number" and player or player.UserId
+			
+			local Reject, Error = API:UnBan(Caller, UserId)
+			if Reject then
+				Signals:Fire("Framework", Caller, "Notify", "Error", Error)
+				return
+			end
+			
+			Signals:Fire("Framework", Caller, "Notify", "Notify", `{game.Players:GetNameFromUserIdAsync(UserId)} succefully banned.`)
+		end,
+	},
+	
+	{
 		Command = "Ban2",
 		RequiredRank = 3,
 		Alias = {"banplayer2"},
@@ -782,10 +807,15 @@ local Commands = {
 			local Value = Arguments[3]
 			
 			local StatName = Arguments[2]
-			local Statistic = player:FindFirstChild(StatName, true)
+			local Statistic = API:GetStat(player, StatName)
 			
 			if Value ~= Value then
 				Signals:Fire("Framework", Caller, "Notify", "Error", "Value cannot be NaN.")
+				return
+			end
+			
+			if not Statistic then
+				Signals:Fire("Framework", Caller, "Notify", "Error", `Unable to find stat '{StatName}'`)
 				return
 			end
 			
@@ -809,10 +839,15 @@ local Commands = {
 			local Value = Arguments[3]
 
 			local StatName = Arguments[2]
-			local Statistic = player:FindFirstChild(StatName, true)
+			local Statistic = API:GetStat(player, StatName)
 
 			if Value ~= Value then
 				Signals:Fire("Framework", Caller, "Notify", "Error", "Value cannot be NaN.")
+				return
+			end
+			
+			if not Statistic then
+				Signals:Fire("Framework", Caller, "Notify", "Error", `Unable to find stat '{StatName}'`)
 				return
 			end
 
@@ -836,10 +871,15 @@ local Commands = {
 			local Value = Arguments[3]
 
 			local StatName = Arguments[2]
-			local Statistic = player:FindFirstChild(StatName, true)
+			local Statistic = API:GetStat(player, StatName)
 
 			if Value ~= Value then
 				Signals:Fire("Framework", Caller, "Notify", "Error", "Value cannot be NaN.")
+				return
+			end
+			
+			if not Statistic then
+				Signals:Fire("Framework", Caller, "Notify", "Error", `Unable to find stat '{StatName}'`)
 				return
 			end
 
@@ -857,7 +897,8 @@ local Commands = {
 		Arguments = {"Player@"},
 		References = {"Player"},
 		ArgPermissions = {},
-
+		
+		Revoke = {"UnMute"},
 		UnDo = function(Caller, Arguments)
 			local player = Arguments[1]
 			Signals:Fire("Framework", player, "Muted", false)
@@ -884,7 +925,44 @@ local Commands = {
 		References = {"Player"},
 		
 		ArgPermissions = {4},
-		UnDo = true
+		Revoke = {"UnCmd", "UnCmdBar"},
+		UnDo = true,
+	},
+	
+	{
+		Command = "Sit",
+		RequiredRank = 3,
+		Alias = {"SitPlayer"},
+		UppercaseMatters = false,
+
+		Client = false,
+		Arguments = {"Player@"},
+		References = {"Player"},
+
+		ArgPermissions = {},
+		Function = function(Caller, Arguments)
+			local player = Arguments[1]
+			player.Character.Humanoid.Sit = true
+		end,
+	},
+	
+	{
+		Command = "Seat",
+		RequiredRank = 3,
+		Alias = {"SeatPlayer"},
+		UppercaseMatters = false,
+
+		Client = false,
+		Arguments = {"Player@", "Object:Seat"},
+		References = {"Player", "SeatObject"},
+
+		ArgPermissions = {},
+		Function = function(Caller, Arguments)
+			local player = Arguments[1]
+			local Seat: Seat = Arguments[2]
+			
+			Seat:Sit(player.Character.Humanoid)
+		end,
 	},
 	
 	--== CHIEF ADMIN ==--
@@ -1067,7 +1145,7 @@ local Commands = {
 
 		Function = function(Caller, Arguments)
 			local player = Arguments[1]
-			Data.ServerFolder.Objects["Building Tools"]:Clone().Parent = player.Backpack
+			script.Parent.Objects["Building Tools"]:Clone().Parent = player.Backpack
 		end,
 	},
 	
@@ -1081,7 +1159,8 @@ local Commands = {
 		Arguments = {"Rank+"},
 		References = {"Rank"},
 		ArgPermissions = {},
-
+		
+		Revoke = {"ServerUnLock", "UnServerLock"},
 		UnDo = function(Caller, Arguments)
 			Signals:Fire("Framework", Caller, "Notify", "Warn", `Server has been unlocked for everyone.`)
 		end,
@@ -1140,6 +1219,10 @@ local Commands = {
 			for i, player in ipairs(game.Players:GetPlayers()) do
 				player:Kick(`{API:GetRank(API:GetUserRank(Caller))} {Caller.Name} shutdowned the server.`)
 			end
+			
+			game.Players.PlayerAdded:Connect(function(player)
+				player:Kick(`{API:GetRank(API:GetUserRank(Caller))} {Caller.Name} shutdowned the server.`)
+			end)
 		end,
 	},
 	
@@ -1156,7 +1239,6 @@ local Commands = {
 
 		Function = function(Caller, Arguments)
 			local Message = Arguments[1]
-			print("works")
 			API:PushMessage({
 				Topic = "GlobalMessage",
 				Arguments = {
@@ -1184,6 +1266,22 @@ local Commands = {
 			local Message = Arguments[2]
 			
 			Signals:Fire("Framework", player, "Notify", "Notify", Message)
+		end,
+	},
+	
+	{
+		Command = "SendTo",
+		RequiredRank = 5,
+		Alias = {"SendToServer"},
+		UppercaseMatters = false,
+		Client = true,
+
+		Arguments = {},
+		References = {},
+		ArgPermissions = {},
+
+		Function = function(Caller, Arguments)
+			Signals:Fire("Framework", Caller, "OpenFrame", "SendFrame")
 		end,
 	},
 	
