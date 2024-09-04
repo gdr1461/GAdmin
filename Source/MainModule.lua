@@ -55,7 +55,6 @@ export type MainModule = {
 	DistributeObjects: (self: MainModule, Folder: Folder) -> (),
 }
 
-_G.GAdmin = script
 local Settings = require(script.Settings)
 local API = require(script.API)
 
@@ -72,7 +71,7 @@ local GAdmin: MainModule = getmetatable(Proxy)
 GAdmin.__metatable = "[GAdmin]: Metatable methods are restricted."
 GAdmin.__type = "GAdmin Main"
 
-GAdmin.__version = "v1.2.1"
+GAdmin.__version = "v1.3.0"
 GAdmin.__LoaderVersion = "v1.0.0"
 
 GAdmin.__PlayerCalls = {}
@@ -124,8 +123,16 @@ GAdmin.GetDataActions = {
 				Arguments = Setting.Arguments,
 				References = Setting.References or Setting.Arguments,
 				Rank = Setting.RequiredRank,
-				UnDo = Setting.UnDo and `Un{Setting.Command}`
 			}
+			
+			if Setting.UnDo then
+				Setting.Revoke = Setting.Revoke or {`Un{Setting.Command}`}
+				if not table.find(Setting.Revoke, `Un{Setting.Command}`) then
+					table.insert(Setting.Revoke, `Un{Setting.Command}`)
+				end
+				
+				NewData.UnDo = table.concat(Setting.Revoke, ", ")
+			end
 			
 			table.insert(Info[RankName], NewData)
 		end
@@ -338,6 +345,10 @@ function GAdmin:Configure(LoaderVersion)
 	print(`--== GAdmin {self.__version}`)
 	print(`[GAdmin]: Configuring..`)
 	
+	--== SETTING UP DEPRECATION ==--
+	local Deprecation = require(Data.ClientFolder.SharedModules.Deprecation)
+	Deprecation:Start()
+	
 	--== GETTING LATEST VERSION OF LOADER ==--
 	local Http = game:GetService("HttpService")
 	local Success, Versions = xpcall(function()
@@ -504,7 +515,7 @@ function GAdmin:Configure(LoaderVersion)
 			Chat = FilteredMessage:GetNonChatStringForBroadcastAsync()
 		})
 		
-		local MessageData = Parser:ParseMessage(player, Message, true)
+		local MessageData = Parser:Parse(player, Message, true, true)--Parser:ParseMessage(player, Message, true)
 		Parser:TriggerCommands(player, MessageData)
 	end)
 	
@@ -571,7 +582,7 @@ function GAdmin:Configure(LoaderVersion)
 		Data.SessionData[player.UserId][Setting] = Value
 	end)
 	
-	local Connection = MessagingService:SubscribeAsync(Settings.Topics.Global, function(MessageData)
+	local Connection = MessagingService:SubscribeAsync(Data.Topics.Global, function(MessageData)
 		if not self.__Topics[MessageData.Data.Topic] then
 			return
 		end
