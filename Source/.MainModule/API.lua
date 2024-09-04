@@ -19,6 +19,7 @@ export type APIModule = {
 	__type: string,
 	__ClientBlacklist: {string?},
 	
+	SetPlayerServerRank: (self: APIModule, player: Player, Rank: number) -> (),
 	GetPlayer: (self: APIModule, Name: string) -> Player,
 	GetPrefix: (self: APIModule, player: Player) -> string,
 	
@@ -33,6 +34,7 @@ export type APIModule = {
 	GetOrderedRanks: (self: APIModule, Ascending: boolean) -> {[number]: string}?,
 	
 	GetBanlist: (self: APIModule) -> {number},
+	GetStat: (self: APIModule, player: Player, Name: string) -> NumberValue | IntValue,
 	IsBanned: (self: APIModule, player: Player) -> boolean,
 	
 	Ban: (self: APIModule, Caller: Player, UserId: number, Reason: string, Time: number?) -> (string, string?),
@@ -55,19 +57,62 @@ local API: APIModule = getmetatable(Proxy)
 API.__metatable = "[GAdmin API]: Metatable methods are restricted."
 API.__type = "GAdmin API"
 
-API.__ClientBlacklist = {"Ban", "UnBan", "GetBanlist", "CheckUserRank", "PushMessage"}
+API.__SpecialKey = "_GAdminAPIBypassNewIndex"
+API.__ClientBlacklist = {"Ban", "UnBan", "CheckUserRank", "PushMessage", "SetPlayerServerRank"}
+API.__Deprecated = {
+	GetPlayer = {
+		Replacement = "GetPlayer",
+		OtherModule = "GlobalAPI",
+	},
+}
+
+function API:__call()
+	return API
+end
 
 function API:__tostring()
 	return self.__type, self.__version
 end
 
 function API:__index(Key)
+	if API.__Deprecated[Key] then
+		if not API.__Deprecated[Key].Warned then
+			warn(`[{self.__type}]: Method :{Key}() is deprecated, {API.__Deprecated[Key].UseNewMethod and "automaticly using" or "use"} {API.__Deprecated[Key].OtherModule or ""}:{API.__Deprecated[Key].Replacement}() instead.`)
+		end
+
+		API.__Deprecated[Key].Warned = true
+		return API.__Deprecated[Key].UseNewMethod and API[API.__Deprecated[Key].Replacement] or API[Key]
+	end
+
 	return API[Key]
 end
 
-function API:__newindex(Key)
+function API:__newindex(Key, Value)
+	--local Split = Key:split("__")
+	--if #Split >= 2 and Split[1] == self.__SpecialKey then
+	--	table.remove(Split, 1)
+	--	API[table.concat(Split, "__")] = Value
+	--	return
+	--end
+	
 	warn(`[GAdmin API]: No access to set new value {Key}.`)
 end
+
+function API:SetPlayerServerRank(player, Rank)
+	if type(Rank) ~= "number" then
+		warn(`[GAdmin API]: Rank must be a number between 0 and 5.`)
+		return
+	end
+	
+	Rank = math.min(math.max(Rank, 0), 5)
+	Data.SessionData[player.UserId].ServerRank = Rank
+	
+	Signals:Fire("Framework", player, "Notify", "Notify", `Your rank now is '{API:GetRank(Rank)}'.`)
+	Signals:Fire("RankUpdate", player, Rank)
+end
+
+--== Old way of getting the player.
+--== Use GlobalAPI:GetPlayer() instead.
 
 function API:GetPlayer(Name)
 	local Player
@@ -136,7 +181,7 @@ function API:CheckUserRank(player)
 	end
 
 	--== OWNER RANK ==--
-	if game.CreatorId == player.UserId or (game.CreatorType == Enum.CreatorType.Group and player:GetRankInGroup(game.CreatorId) >= 255) then
+	if self:GetOwner() == player.UserId then
 		Data.SessionData[player.UserId].ServerRank = self:GetRank(5, true).Rank
 	end
 	
@@ -155,7 +200,7 @@ function API:CheckUserRank(player)
 		GroupId = tonumber(GroupId, 10)
 		local UserRole = player:GetRankInGroup(GroupId)
 		
-		if not UserRole or not Ranks[UserRole] then
+		if not UserRole or not Ranks[UserRole] or self:GetUserRank(player) >= self:GetRank(Ranks[UserRole], true).Rank then
 			continue
 		end
 		
@@ -331,17 +376,18 @@ function API:Ban(Caller, UserId, Reason, Time)
 end
 
 function API:UnBan(UserId)
-	local Success, PlayerData = DataStoreLoader.Load(tonumber(UserId, 10), Settings.DataStores.PlayerData)
+	UserId = typeof(UserId) == "Instance" and UserId.UserId or tonumber(UserId, 10)
+	if not self:IsBanned(UserId) then
+		return "ERROR", "Player is not banned."
+	end
+	
+	local Success, PlayerData = DataStoreLoader.Load(UserId, Settings.DataStores.PlayerData)
 	if not Success then
 		warn(`[GAdmin API]: Unable to get player data.`)
 		return "ERROR", "Unable to get player data."
 	end
 	
-	if not PlayerData.Banned or type(PlayerData.Banned) ~= "table" or DateTime.now().UnixTimestamp >= tonumber(PlayerData.Banned.Time, 10) then
-		return "ERROR", "Player is not banned."
-	end
-	
-	if game.Players:GetBanHistoryAsync(UserId) then
+	if not game["Run Service"]:IsStudio() and game.Players:GetBanHistoryAsync(UserId) then
 		game.Players:UnbanAsync({
 			UserIds = {UserId},
 			ApplyToUniverse = true
@@ -352,8 +398,8 @@ function API:UnBan(UserId)
 	DataStoreLoader.Save(UserId, PlayerData, Settings.DataStores.PlayerData)
 end
 
-function API:PushMessage(Data)
-	MessagingService:PublishAsync(Settings.Topics.Global, Data)
+function API:PushMessage(MessageData)
+	MessagingService:PublishAsync(Data.Topics.Global, MessageData)
 end
 
 function API:GetSignals()
@@ -374,11 +420,8 @@ function API:GetBanlist()
 		for i, RawData in ipairs(Items) do
 			local UserId = RawData.KeyName:gsub("global/", "")
 			local Success, PlayerData = DataStoreLoader.Load(UserId, Settings.DataStores.PlayerData)
-			if not PlayerData or not PlayerData.Banned then
-				continue
-			end
 			
-			if type(PlayerData.Banned) ~= "table" or not PlayerData.Banned.Time or DateTime.now().UnixTimestamp >= tonumber(PlayerData.Banned.Time) then
+			if not self:IsBanned(UserId) then
 				continue
 			end
 			
@@ -395,14 +438,30 @@ function API:GetBanlist()
 	return Bans
 end
 
+function API:GetStat(player, Name)
+	for i, Stat in ipairs(player:GetDescendants()) do
+		if Stat.Name ~= Name or (not Stat:IsA("NumberValue") and not Stat:IsA("IntValue")) then
+			continue
+		end
+		
+		return Stat
+	end
+end
+
 function API:IsBanned(player)
-	local Success, Response = DataStoreLoader.Load(player.UserId, Settings.DataStores.PlayerData)
+	local UserId = typeof(player) == "Instance" and player.UserId or tonumber(player, 10)
+	local Success, Response = DataStoreLoader.Load(UserId, Settings.DataStores.PlayerData)
+	
 	if not Success then
 		warn(`[GAdmin API]: Unable to get user ban data.`)
 		return
 	end
 	
-	return Response.Banned
+	if type(Response.Banned) == "table" then
+		print(DateTime.now().UnixTimestamp < tonumber(Response.Banned.Time))
+		print(Response.Banned.Time == "inf" or Response.Banned.Time == math.huge)
+	end
+	return type(Response.Banned) == "table" and (DateTime.now().UnixTimestamp < tonumber(Response.Banned.Time) or (Response.Banned.Time == "inf" or Response.Banned.Time == math.huge))
 end
 
 function API.ClientCall(player, Action, ...)
