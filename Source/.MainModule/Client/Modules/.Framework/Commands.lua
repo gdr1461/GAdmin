@@ -11,6 +11,7 @@ local UI = require(Modules.UI)
 local Gui = UI:GetGui()
 
 export type CommandsType = {
+	Commands: {any},
 	Refresh: () -> (),
 	Search: (Command: string) -> {string?},
 	ShowOnly: (Table: {string}?) -> (),
@@ -27,12 +28,14 @@ Commands.DefaultOrder = {}
 Commands.Commands = {}
 Commands.Info = script.Info
 Commands.Offset = 1
+
+Commands.SearchFindPercent = 25
 Commands.AllCommands = nil
 
 function Commands.Refresh()
 	Commands.AllCommands = Commands.AllCommands or Signals:Fire("GetData", "GetCommands")
 	for i, Frame in ipairs(Commands.Frame.List:GetChildren()) do
-		if not Frame:IsA("Frame") then
+		if not Frame:IsA("Frame") and not Frame:IsA("TextLabel") then
 			continue
 		end
 		
@@ -41,6 +44,32 @@ function Commands.Refresh()
 	
 	local CommandsCount = 0
 	Commands.Commands = Signals:Fire("GetData", "GetRankCommands", Data.Rank.Id)
+	
+	--== SLASH COMMANDS ==--
+	for i, ChatInstance in ipairs(Data.ChatCommandsFolder:GetChildren()) do
+		local Command = Commands.Get(ChatInstance.Name, true)
+		if not Command or Command.RequiredRank <= Data.Rank.Id then
+			continue
+		end
+		
+		ChatInstance.Parent = script
+		table.insert(Data.ChatCommands, ChatInstance)
+	end
+	
+	for i = 1, #Data.ChatCommands do
+		local ChatInstance = Data.ChatCommands[i]
+		if not ChatInstance then
+			continue
+		end
+		
+		local Command = Commands.Get(ChatInstance.Name, true)
+		if not Command or Command.RequiredRank > Data.Rank.Id then
+			continue
+		end
+
+		ChatInstance.Parent = Data.ChatCommandsFolder
+		table.remove(Data.ChatCommands, i)
+	end
 	
 	--== RANKS ==--
 	for i = 1, #Data.OrderedRanks do
@@ -52,6 +81,47 @@ function Commands.Refresh()
 	end
 end
 
+function Commands.Get(Command, NoAlias)
+	for i, Setting in ipairs(Commands.AllCommands) do
+		if Setting.Command:lower():sub(1, #Command) == Command:lower() or GlobalAPI:GetSimilarity(Setting.Command:lower(), Command:lower(), "Percent", Commands.SearchFindPercent) then
+			return Setting
+		end
+		
+		if Setting.UnDo then
+			Setting.Revoke = Setting.Revoke or {`Un{Setting.Command}`}
+			if not table.find(Setting.Revoke, `Un{Setting.Command}`) then
+				table.insert(Setting.Revoke, `Un{Setting.Command}`)
+			end
+
+			local Continue = false
+			for i, Alias in ipairs(Setting.Revoke) do
+				Continue = Alias:lower() == Command:lower()
+				if Continue then
+					break
+				end
+
+				if Alias:lower():sub(1, #Command) ~= Command:lower() and not GlobalAPI:GetSimilarity(Alias:lower(), Command:lower(), "Percent", Commands.SearchFindPercent) then
+					continue
+				end
+
+				return Setting
+			end
+		end
+		
+		if NoAlias then
+			continue
+		end
+
+		for i, Alias in pairs(Setting.Alias) do
+			if Alias:lower():sub(1, #Command) ~= Command:lower() and not GlobalAPI:GetSimilarity(Alias:lower(), Command:lower(), "Percent", Commands.SearchFindPercent) then
+				continue
+			end
+
+			return Setting
+		end
+	end
+end
+
 function Commands.Search(Command, IgnoreFull, NoAlias)
 	local Possibilites = {}
 	for i, Setting in ipairs(Commands.AllCommands) do
@@ -59,25 +129,50 @@ function Commands.Search(Command, IgnoreFull, NoAlias)
 			continue
 		end
 		
-		if Setting.Command:lower():sub(1, #Command) == Command:lower() then
+		if Setting.UnDo then
+			Setting.Revoke = Setting.Revoke or {`Un{Setting.Command}`}
+			if not table.find(Setting.Revoke, `Un{Setting.Command}`) then
+				table.insert(Setting.Revoke, `Un{Setting.Command}`)
+			end
+
+			local Continue = false
+			for i, Alias in ipairs(Setting.Revoke) do
+				Continue = IgnoreFull and Alias:lower() == Command:lower()
+				if Continue then
+					break
+				end
+				
+				if Alias:lower():sub(1, #Command) ~= Command:lower() and not GlobalAPI:GetSimilarity(Alias:lower(), Command:lower(), "Percent", Commands.SearchFindPercent) then
+					continue
+				end
+
+				table.insert(Possibilites, Setting.Command)
+			end
+			
+			if Continue then
+				continue
+			end
+		end
+		
+		if Setting.Command:lower():sub(1, #Command) == Command:lower() or GlobalAPI:GetSimilarity(Setting.Command:lower(), Command:lower(), "Percent", Commands.SearchFindPercent) then
 			table.insert(Possibilites, Setting.Command)
 			continue
 		end
-		
+
 		if NoAlias then
 			continue
 		end
-		
+
 		for i, Alias in pairs(Setting.Alias) do
-			if Alias:lower():sub(1, #Command) ~= Command:lower() then
+			if Alias:lower():sub(1, #Command) ~= Command:lower() and not GlobalAPI:GetSimilarity(Alias:lower(), Command:lower(), "Percent", Commands.SearchFindPercent) then
 				continue
 			end
-			
+
 			table.insert(Possibilites, Setting.Command)
 			break
 		end
 	end
-	
+
 	return Possibilites
 end
 
