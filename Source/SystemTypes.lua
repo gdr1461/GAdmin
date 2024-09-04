@@ -171,6 +171,7 @@ export type ServerAPI = {
 	__type: string,
 	__ClientBlacklist: {string?},
 
+	SetPlayerServerRank: (self: ServerAPI, player: Player, Rank: number) -> (),
 	GetPlayer: (self: ServerAPI, Name: string) -> Player,
 	GetPrefix: (self: ServerAPI, player: Player) -> string,
 
@@ -185,11 +186,12 @@ export type ServerAPI = {
 	GetOrderedRanks: (self: ServerAPI, Ascending: boolean) -> {[number]: string}?,
 
 	GetBanlist: (self: ServerAPI) -> {number},
+	GetStat: (self: ServerAPI, player: Player, Name: string) -> NumberValue | IntValue,
 	IsBanned: (self: ServerAPI, player: Player) -> boolean,
 
 	Ban: (self: ServerAPI, Caller: Player, UserId: number, Reason: string, Time: number?) -> (string, string?),
 	BanIP: (self: ServerAPI, Caller: Player, UserId: number, Reason: string, Time: number?) -> (string, string?),
-	
+
 	UnBan: (self: ServerAPI, UserId: number) -> (string, string?),
 	PushMessage: (self: ServerAPI, Data: MessageTopic) -> (),
 
@@ -226,9 +228,20 @@ export type SharedAPI = {
 	__metatable: string,
 	__type: string,
 
-	HeadShot: (self: SharedAPI, UserId: number) -> (string, boolean),
+	GetSimilarity: (self: SharedAPI, String1: string, String2: string, Mode: "Percent" | "Symbols", Value: number) -> boolean,
 	FindValue: (self: SharedAPI, Data: Dictionary, Value: any) -> Key,
+
+	FindValueParent: (self: SharedAPI, Data: Dictionary, Value: any) -> Dictionary,
+	FindKey: (self: SharedAPI, Data: Table, Key: Key) -> Value,
+
+	GetServerType: (self: SharedAPI) -> "Global" | "Reserved" | "Private",
+	HeadShot: (self: SharedAPI, UserId: number) -> (string, boolean),
+
 	SetModelCollision: (self: SharedAPI, Model: Model | Folder, CollisionGroup: CollisionGroups) -> (),
+	GetPlayer: (self: SharedAPI, Method: "Name" | "UserId", Variables: any) -> Player,
+
+	GetCommand: (self: SharedAPI, Commands: Commands, Command: string) -> (string, CommandData),
+	GetSide: (self: SharedAPI) -> "Server" | "Client",
 }
 
 --________________________________________________________________________________________________________________________________________________________
@@ -265,29 +278,28 @@ export type ClientAPI = {
 		Big: UDim2,
 		Giant: UDim2,
 	},
-	
+
 	__InputWindowSizes: {
 		Small: UDim2,
 		Normal: UDim2,
 	},
-	
-	GetTopBarPlus: (self: ClientAPI) -> TopBarPlusTypes.ModuleType,
-	GetTopBar: (self: ClientAPI) -> TopBarPlusTypes.IconType,
+
+	GetTopBarPlus: (self: ClientAPI) -> Icon.ModuleType,
+	GetTopBar: (self: ClientAPI) -> Icon.IconType,
 	TopBarEnabled: (self: ClientAPI, Enabled: boolean) -> (),
-	
+
 	ConvertUDim: (self: ClientAPI, Mode: "Scale" | "Offset", Udim: UDim2) -> UDim2,
 	GetFrameMousePosition: (self: ClientAPI, Gui: ScreenGui, Frame: GuiObject, Offset: {X: number, Y: number}) -> UDim2,
-	
 	Notify: (self: ClientAPI, Type: "Notify" | "Error" | "Warn", Text: string, Timer: number?, OnInteract: () -> ()?) -> {any},
+
 	CreateHoverInfo: (self: ClientAPI, Object: GuiObject, Info: string) -> HoverData,
-	
 	GetMarkdown: (self: ClientAPI, Button: TextButton) -> MarkdownData,
 	CreateMarkdown: (self: ClientAPI, Button: TextButton, OnActivated: (State: boolean) -> (), Info: string?) -> MarkdownData,
-	
+
 	CreateWindow: (self: ClientAPI, Title: string, Data: WindowData) -> Frame,
-	CreateInputWindow: (self: APIModule, Title: string, Data: InputWindowData) -> Frame,
-	
-	CloseWindow: (self: APIModule, Title: string) -> (),
+	CreateInputWindow: (self: ClientAPI, Title: string, Data: InputWindowData) -> Frame,
+
+	CloseWindow: (self: ClientAPI, Title: string) -> (),
 	Clear: (self: ClientAPI) -> (),
 }
 
