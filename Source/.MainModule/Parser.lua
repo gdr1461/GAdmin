@@ -13,11 +13,11 @@ export type ParserModule = {
 	SetChatCommand: (self: ParserModule, Name: string, AutoComplete: boolean?) -> TextChatCommand,
 	FromMessage: (self: ParserModule, Message: string, Caller: Player?) -> (),
 	
-	Parse: (self: ParserModule, Caller: Player, Message: string) -> {any},
+	Parse: (self: ParserModule, Caller: Player, Message: string, IgnoreCustomPrefix: boolean, IgnoreAllPrefixes: boolean) -> {any},
 	ParseData: (self: ParserModule, Caller: Player, MessageData: {any}) -> {any},
 	
 	ParseMessage: (self: ParserModule, Caller: Player, Message: string, IgnorePrefix: boolean?) -> {any},
-	GetCommand: (self: ParserModule, Command: string) -> (string, {any}),
+	GetCommand: (self: ParserModule, "Deprecated"--[[Command: string]]) -> (string, {any}),
 	
 	TriggerCommand: (self: ParserModule, Caller: Player, Command: string, Arguments: {any}) -> (any, any)?,
 	TriggerCommands: (self: ParserModule, Caller: Player, MessageData: {any}) -> ({[string]: {any}})?,
@@ -45,35 +45,43 @@ local Parser: ParserModule = getmetatable(Proxy)
 Parser.__metatable = "[GAdmin Parser]: Metatable methods are restricted."
 Parser.__type = "GAdmin Parser"
 
+Parser.__SpecialKey = "_GAdminParserBypassNewIndex"
 Parser.__Deprecated = {
 	ParseMessage = {
 		Replacement = "Parse",
 		UseNewMethod = true
-	},
-	
-	CheckArgument = {
-		Replacement = "TransformArguments"
 	}
 }
+
+function Parser:__call()
+	return Parser
+end
 
 function Parser:__tostring()
 	return self.__type
 end
 
 function Parser:__index(Key)
-	if Parser.__Deprecated[Key] and not Parser.__Deprecated[Key].Warned then
-		Parser.__Deprecated[Key].Warned = true
-		warn(`[GAdmin Parser]: Method :{Key}() is deprecated, {Parser.__Deprecated[Key].UseNewMethod and "automaticly using" or "use"} :{Parser.__Deprecated[Key].Replacement}() instead.`)
-		
-		if Parser.__Deprecated[Key].UseNewMethod then
-			return Parser[Parser.__Deprecated[Key].Replacement]
+	if Parser.__Deprecated[Key] then
+		if not Parser.__Deprecated[Key].Warned then
+			warn(`[{self.__type}]: Method :{Key}() is deprecated, {Parser.__Deprecated[Key].UseNewMethod and "automaticly using" or "use"} {Parser.__Deprecated[Key].OtherModule or ""}:{Parser.__Deprecated[Key].Replacement}() instead.`)
 		end
+		
+		Parser.__Deprecated[Key].Warned = true
+		return Parser.__Deprecated[Key].UseNewMethod and Parser[Parser.__Deprecated[Key].Replacement] or Parser[Key]
 	end
 	
 	return Parser[Key]
 end
 
-function Parser:__newindex(Key)
+function Parser:__newindex(Key, Value)
+	--local Split = Key:split("__")
+	--if #Split >= 2 and Split[1] == self.__SpecialKey then
+	--	table.remove(Split, 1)
+	--	Parser[table.concat(Split, "__")] = Value
+	--	return
+	--end
+	
 	warn(`[GAdmin Parser]: No access to set new value {Key}.`)
 end
 
@@ -92,7 +100,13 @@ function Parser:SetChatCommand(Name, AutoComplete)
 	
 	ChatCommand.AutocompleteVisible = AutoComplete
 	ChatCommand.PrimaryAlias = `/{Command.Command:lower()}`
-	ChatCommand.SecondaryAlias = Command.UnDo and `/un{Command.Command:lower()}` or ""
+	
+	Command.Revoke = (Command.UnDo and Command.Revoke) and Command.Revoke or {`Un{Command.Command}`}
+	if not table.find(Command.Revoke, `Un{Command.Command}`) then
+		table.insert(Command.Revoke, `Un{Command.Command}`)
+	end
+	
+	ChatCommand.SecondaryAlias = Command.UnDo and `/{Command.Revoke[1]:lower()}` or ""
 
 	ChatCommand.Triggered:Connect(function(Source, Message)
 		local player = game.Players:GetPlayerByUserId(Source.UserId)
@@ -211,9 +225,51 @@ end
 --== Better than :ParseMessage() because is splitting commands by prefix
 --== Worser than :ParseMessage() because prefix is needed.
 
-function Parser:Parse(Caller, Message, IgnoreCustomPrefix)
+function Parser:Parse(Caller, Message, IgnoreCustomPrefix, IgnoreAllPrefixes)
 	local CustomPrefix = Caller and API:GetPrefix(Caller) or ";"
 	local Prefix = IgnoreCustomPrefix and Settings.DefaultPrefix or CustomPrefix
+	
+	if IgnoreAllPrefixes then
+		local RawData = Message:split(" ")
+		local MessageData = {}
+		
+		local Command
+		local LastIndex
+		
+		for i, Word in ipairs(RawData) do
+			if Word:gsub("%s", "") == "" then
+				continue
+			end
+			
+			local WordCommand = Word:gsub(CustomPrefix, ""):gsub(Settings.DefaultPrefix, "")
+			local Name, TempCommand = self:GetCommand(WordCommand)
+			local Offset = #MessageData
+			
+			if not TempCommand and not Command and not Settings.IncorrectCommandNotify then
+				if not Caller then
+					warn(`[GAdmin Parser]: Command '{WordCommand}' is not valid.`)
+					break
+				end
+
+				Signals:Fire("Framework", Caller, "Notify", "Error", `Command '{WordCommand}' is not valid.`)
+				break
+			end
+			
+			if not TempCommand then
+				table.insert(MessageData[Offset][2], Word)
+				continue
+			end
+			
+			Command = WordCommand
+			local TableData = {Command, {}}
+			
+			table.insert(MessageData, TableData)
+			LastIndex = table.find(MessageData, TableData)
+		end
+		
+		local BakedData = self:ParseData(Caller, MessageData)
+		return {"This whole table needs to be put into :TriggerCommands() method.", BakedData and unpack(BakedData)}
+	end
 	
 	local RawData = Message:gsub(CustomPrefix, Prefix):split(Prefix)
 	local MessageData = {}
@@ -230,7 +286,7 @@ function Parser:Parse(Caller, Message, IgnoreCustomPrefix)
 			local IsCommand = i == 1
 			local Offset = #MessageData
 			
-			if String:gsub("%s", "") == ""  then
+			if String:gsub("%s", "") == "" then
 				continue
 			end
 			
@@ -251,6 +307,7 @@ function Parser:Parse(Caller, Message, IgnoreCustomPrefix)
 
 			Command = String
 			local TableData = {Command, {}}
+			
 			table.insert(MessageData, TableData)
 			LastIndex = table.find(MessageData, TableData)
 		end
@@ -361,55 +418,7 @@ function Parser:ParseMessage(Caller, Message, IgnorePrefix)
 end
 
 function Parser:GetCommand(Command)
-	if not Command then
-		return
-	end
-	
-	for i, Setting in pairs(Commands) do
-		if Setting.Debug then
-			continue
-		end
-		
-		local CommandName = not Setting.UppercaseMatters and Setting.Command:lower() or Setting.Command
-		Command = not Setting.UppercaseMatters and Command:lower() or Command
-		
-		if CommandName == Command then
-			return Setting.Command, Setting
-		end
-		
-		Setting.Alias = Setting.Alias or {}
-		for i, Alias in ipairs(Setting.Alias) do
-			local Alias = not Setting.UppercaseMatters and Alias:lower() or Alias
-			if Alias == Command then
-				return Setting.Command, Setting
-			end
-			
-			if Alias ~= Command then
-				continue
-			end
-			
-			return Setting.Command, Setting
-		end
-		
-		--== COMMAND UNDOS ==--
-		if Setting.UnDo then
-			for i, Alias in ipairs(Setting.Alias) do
-				local UnDoName = not Setting.UppercaseMatters and `un{Alias:lower()}` or `Un{Alias}`
-				if Command ~= UnDoName then
-					continue
-				end
-				
-				return `Un{Setting.Command}`, Setting
-			end
-		end
-		
-		local UnDoName = Setting.UnDo and (not Setting.UppercaseMatters and `un{CommandName}` or `Un{CommandName}`)
-		if not UnDoName or Command ~= UnDoName then
-			continue
-		end
-		
-		return `Un{Setting.Command}`, Setting
-	end
+	return GlobalAPI:GetCommand(Commands, Command)
 end
 
 function Parser:TransformArguments(Caller, Command, Arguments)
