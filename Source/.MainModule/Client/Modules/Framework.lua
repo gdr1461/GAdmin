@@ -62,7 +62,9 @@ export type MainFramework = {
 	
 	Refresh: (self: MainFramework) -> (),
 	OpenFrame: (self: MainFramework, Frame: GuiObject | string, Page: number?) -> (),
+	
 	NewCmdBar: (self: MainFramework) -> (),
+	CreateCmdBar: (self: MainFramework, InputFrame: string, OnActivated: (WindowData: ClientAPI.WindowData, Message: string) -> ()) -> Frame,
 	
 	GetGui: (self: MainFramework) -> ScreenGui,
 	CloseAll: (self: MainFramework, Class: GuiObject) -> (),
@@ -488,8 +490,15 @@ function Framework:NewCmdBar()
 		Data.CmdBarConnections = {}
 	end
 	
+	Data.CmdBar, Data.CmdBarConnections = self:CreateCmdBar("CmdBar", function(WindowData, Message)
+		Signals:Fire("FireCommand", Message)
+	end)
+end
+
+function Framework:CreateCmdBar(InputWindow, OnClicked)
 	local Message = ""
-	Data.CmdBar = ClientAPI:CreateInputWindow("CmdBar", {
+	local CmdBarConnections = {}
+	local CmdBar = ClientAPI:CreateInputWindow(InputWindow, {
 		Size = "Normal",
 		Input = {
 			DefaultInput = "",
@@ -499,27 +508,27 @@ function Framework:NewCmdBar()
 		},
 
 		OnClicked = function(WindowData)
-			Signals:Fire("FireCommand", Message)
+			OnClicked(WindowData, Message)
 		end,
-		
+
 		OnRemove = function()
 			self:NewCmdBar()
 		end,
 	})
-	
+
 	local LastFill
 	local LastPosition = 1
-	
+
 	local FillIndex = 1
 	local LastIndex = FillIndex
-	
+
 	local FinalIndex = FillIndex
 	local LatestText
 	local AutoFills = {}
-	
+
 	local KeyCodes = {
 		[Enum.KeyCode.Return] = function()
-			local Words = Data.CmdBar.TextBox.Text:sub(1, Data.CmdBar.TextBox.CursorPosition - 1):split(" ")
+			local Words = CmdBar.TextBox.Text:sub(1, CmdBar.TextBox.CursorPosition - 1):split(" ")
 			local Text
 
 			local Index
@@ -536,56 +545,58 @@ function Framework:NewCmdBar()
 			end
 
 			if not Text then
-				Text = Data.CmdBar.TextBox.Text
+				Text = CmdBar.TextBox.Text
 			end
-			
+
 			local Frame = AutoFills[FinalIndex]
 			LastFill = tick()
 			Words[Index] = Frame.Name:lower()
 
 			AutoFills = {}
 			local Replacement = `{table.concat(Words, " ")} `
-			Data.CmdBar.TextBox.Text = `{Replacement}{Data.CmdBar.TextBox.Text:sub(LastPosition + 1, #Data.CmdBar.TextBox.Text)}`
+			CmdBar.TextBox.Text = `{Replacement}{CmdBar.TextBox.Text:sub(LastPosition + 1, #CmdBar.TextBox.Text)}`
+
+			LatestText = CmdBar.TextBox.Text
+			CmdBar.AutoFill:Destroy()
 			
-			LatestText = Data.CmdBar.TextBox.Text
-			Data.CmdBar.AutoFill:Destroy()
-			Data.CmdBar.TextBox.CursorPosition = #Replacement
+			CmdBar.TextBox.CursorPosition = #Replacement
+			Message = CmdBar.TextBox.Text
 		end,
-		
+
 		[Enum.KeyCode.Up] = function()
 			LastIndex = FillIndex
 			FillIndex = math.max(FillIndex - 1, 1)
-			
+
 			local OldFrame = AutoFills[LastIndex]
 			OldFrame.Interact.BackgroundColor3 = Color3.new(0.133333, 0.121569, 0.180392)
-			
+
 			local Frame = AutoFills[FillIndex]
 			Frame.Interact.BackgroundColor3 = Color3.new(0.313725, 0.298039, 0.372549)
 		end,
-		
+
 		[Enum.KeyCode.Down] = function()
 			LastIndex = FillIndex
 			FillIndex = math.min(FillIndex + 1, #AutoFills)
-			
+
 			local OldFrame = AutoFills[LastIndex]
 			OldFrame.Interact.BackgroundColor3 = Color3.new(0.133333, 0.121569, 0.180392)
-			
+
 			local Frame = AutoFills[FillIndex]
 			Frame.Interact.BackgroundColor3 = Color3.new(0.313725, 0.298039, 0.372549)
 		end,
 	}
-	
+
 	local function AutoFill()
 		if LastFill and tick() - LastFill <= .1 then
 			return
 		end
-		
-		if Data.CmdBar.TextBox.Text:gsub("%s", "") == "" or #Data.CmdBar.TextBox.Text < 1 then
-			if Data.CmdBar:FindFirstChild("AutoFill") then Data.CmdBar.AutoFill:Destroy() end
+
+		if CmdBar.TextBox.Text:gsub("%s", "") == "" or #CmdBar.TextBox.Text < 1 then
+			if CmdBar:FindFirstChild("AutoFill") then CmdBar.AutoFill:Destroy() end
 			return
 		end
-		
-		local Words = Data.CmdBar.TextBox.Text:sub(1, Data.CmdBar.TextBox.CursorPosition - 1):split(" ")
+
+		local Words = CmdBar.TextBox.Text:sub(1, CmdBar.TextBox.CursorPosition - 1):split(" ")
 		local Text
 
 		local Index
@@ -594,35 +605,39 @@ function Framework:NewCmdBar()
 				if Words[i]:gsub("%s", "") == "" then
 					continue
 				end
-				
+
 				Index = #Words
 				Text = Words[Index]
 				break
 			end
 		end
 		
-		if not Text then
-			Text = Data.CmdBar.TextBox.Text
+		if not Index then
+			return
 		end
-		
-		if Data.CmdBar:FindFirstChild("AutoFill") then Data.CmdBar.AutoFill:Destroy() end
+
+		if not Text then
+			Text = CmdBar.TextBox.Text
+		end
+
+		if CmdBar:FindFirstChild("AutoFill") then CmdBar.AutoFill:Destroy() end
 		if Text:gsub("%s", "") == "" or #Text < 1 then
 			return
 		end
 
 		AutoFills = {}
-		
+
 		local Similar = Commands.Search(Text:gsub("%p", ""), true, true)
 		local Players = {}
-		
+
 		for i, player in ipairs(game.Players:GetPlayers()) do
 			if player.Name:sub(1, #Text):lower() ~= Text:lower() then
 				continue
 			end
-			
+
 			table.insert(Players, player.Name)
 		end
-		
+
 		if #Similar <= 0 then
 			return
 		end
@@ -631,38 +646,55 @@ function Framework:NewCmdBar()
 		FillIndex = #Similar + (Index % 2 == 0 and #Players or 0)
 
 		local AutoFill = script.AutoFill.AutoFill:Clone()
-		AutoFill.Parent = Data.CmdBar
-
+		AutoFill.Parent = CmdBar
+		
 		for i, Command in ipairs(Similar) do
-			local CommandSettings = GlobalAPI:FindValueParent(Commands.Commands, Command)
+			local Name, CommandSettings = GlobalAPI:GetCommand(Commands.AllCommands, Command)
 			CommandSettings = CommandSettings or {
 				Arguments = {},
 				References = {}
 			}
-			
+
 			local RawArguments = CommandSettings.References or CommandSettings.Arguments
 			for i, Argument in ipairs(RawArguments) do
 				RawArguments[i] = `[{Argument:gsub("%p", "")}]`
 			end
-			
+
 			local Arguments = table.concat(RawArguments, " ")
 			local Template = script.AutoFill.Fill:Clone()
-			
+
 			Template.Name = Command
-			Template.Title.Text = `{Command}{Arguments ~= "" and ` {Arguments}` or ""}`
-			Template.Parent = AutoFill
+			local Info = `{Command}{Arguments ~= "" and ` {Arguments}` or ""}`
 			
+			Template.Title.Text = Info
+			Template.Parent = AutoFill
+
 			AutoFills[i] = Template
+			ClientAPI:CreateHoverInfo(Template.Interact, Info)
+			
 			Template.Interact.Activated:Connect(function()
 				LastFill = tick()
 				Words[Index] = Command:lower()
-				
+
 				AutoFills = {}
-				Data.CmdBar.TextBox.Text = `{table.concat(Words, " ")} {Data.CmdBar.TextBox.Text:sub(LastPosition + 1, #Data.CmdBar.TextBox.Text)}`
-				Data.CmdBar.AutoFill:Destroy()
+				CmdBar.TextBox.Text = `{table.concat(Words, " ")} {CmdBar.TextBox.Text:sub(LastPosition + 1, #CmdBar.TextBox.Text)}`
+				
+				Message = CmdBar.TextBox.Text
+				CmdBar.AutoFill:Destroy()
+			end)
+			
+			Template.Interact.MouseEnter:Connect(function()
+				LastIndex = FillIndex
+				FillIndex = math.max(i, 1)
+
+				local OldFrame = AutoFills[LastIndex]
+				OldFrame.Interact.BackgroundColor3 = Color3.new(0.133333, 0.121569, 0.180392)
+
+				local Frame = AutoFills[i]
+				Frame.Interact.BackgroundColor3 = Color3.new(0.313725, 0.298039, 0.372549)
 			end)
 		end
-		
+
 		if Index % 2 == 0 then
 			for i, Player in ipairs(Players) do
 				local Template = script.AutoFill.Fill:Clone()
@@ -677,55 +709,58 @@ function Framework:NewCmdBar()
 					Words[Index] = Player:lower()
 
 					AutoFills = {}
-					Data.CmdBar.TextBox.Text = `{table.concat(Words, " ")} {Data.CmdBar.TextBox.Text:sub(LastPosition + 1, #Data.CmdBar.TextBox.Text)}`
-					Data.CmdBar.AutoFill:Destroy()
+					CmdBar.TextBox.Text = `{table.concat(Words, " ")} {CmdBar.TextBox.Text:sub(LastPosition + 1, #CmdBar.TextBox.Text)}`
+					CmdBar.AutoFill:Destroy()
 				end)
 			end
 		end
-		
+
 		local Frame = AutoFills[FillIndex]
 		Frame.Interact.BackgroundColor3 = Color3.new(0.313725, 0.298039, 0.372549)
 	end
-	
-	local LastCount = #Data.CmdBar.TextBox.Text
-	Data.CmdBar.Visible = false
-	
-	Data.CmdBar.TextBox.FocusLost:Connect(function(EnterPressed)
+
+	local LastCount = #CmdBar.TextBox.Text
+	CmdBar.Visible = false
+
+	CmdBar.TextBox.FocusLost:Connect(function(EnterPressed)
 		if not EnterPressed then
 			return
 		end
-		
+
 		local CursorPosition = LastPosition
-		Data.CmdBar.TextBox:CaptureFocus()
-		Data.CmdBar.TextBox.CursorPosition = CursorPosition
+		CmdBar.TextBox:CaptureFocus()
+		CmdBar.TextBox.CursorPosition = CursorPosition
 	end)
-	
-	Data.CmdBar.TextBox:GetPropertyChangedSignal("Text"):Connect(AutoFill)
-	Data.CmdBar.TextBox:GetPropertyChangedSignal("CursorPosition"):Connect(function()
-		if Data.CmdBar.TextBox.CursorPosition <= 0 then
+
+	CmdBar.TextBox:GetPropertyChangedSignal("Text"):Connect(AutoFill)
+	CmdBar.TextBox:GetPropertyChangedSignal("CursorPosition"):Connect(function()
+		if CmdBar.TextBox.CursorPosition <= 0 then
 			return
 		end
-		
-		LastPosition = Data.CmdBar.TextBox.CursorPosition
+
+		LastPosition = CmdBar.TextBox.CursorPosition
 		AutoFill()
 	end)
-	
-	Data.CmdBarConnections.Began = UserInputService.InputBegan:Connect(function(InputKey)
+
+	CmdBarConnections.Began = UserInputService.InputBegan:Connect(function(InputKey)
 		if not KeyCodes[InputKey.KeyCode] or #AutoFills <= 0 then
 			return
 		end
-		
+
 		KeyCodes[InputKey.KeyCode]()
 	end)
-	
-	Data.CmdBarConnections.Ended = UserInputService.InputEnded:Connect(function(InputKey)
+
+	CmdBarConnections.Ended = UserInputService.InputEnded:Connect(function(InputKey)
 		if InputKey.KeyCode ~= Enum.KeyCode.Return or not LatestText then
 			return
 		end
-		
-		Data.CmdBar.TextBox.Text = LatestText
+
+		CmdBar.TextBox.Text = LatestText
+		Message = CmdBar.TextBox.Text
 		LatestText = nil
 	end)
+	
+	return CmdBar, CmdBarConnections
 end
 
 function Framework:OpenFrame(Frame, Page)
