@@ -136,9 +136,18 @@ ClientAPI.__HoverInstance = UI:GetGui().Info
 ClientAPI.__CurrentHover = nil
 
 RunService.RenderStepped:Connect(function()
-	local HoverData = ClientAPI.__Hovers[ClientAPI.__CurrentHover]
-	ClientAPI.__HoverInstance.Text = HoverData.Info
+	if not ClientAPI.__HoverInstance then
+		return
+	end
 	
+	local HoverData = ClientAPI.__Hovers[ClientAPI.__CurrentHover]
+	ClientAPI.__HoverInstance.Visible = HoverData ~= nil
+	
+	if not HoverData then
+		return
+	end
+	
+	ClientAPI.__HoverInstance.Text = HoverData.Info
 	local Position = ClientAPI:GetFrameMousePosition(HoverData.Gui, ClientAPI.__HoverInstance, {
 		X = 7,
 		Y = 75
@@ -204,6 +213,7 @@ function ClientAPI:Notify(Type, Text, Timer, OnInteract)
 	
 	Sounds:Play("Notify", Type)
 	local Notification = Notify.Create(Text, Timer)
+	
 	Notification:OnInteract(OnInteract)
 	return Notification
 end
@@ -225,6 +235,27 @@ function ClientAPI:CreateHoverInfo(Object, Text)
 		end
 		
 		self.__CurrentHover = nil
+	end)
+	
+	Object.Destroying:Connect(function()
+		self.__Hovers[Object] = nil
+		if self.__CurrentHover == Object then
+			self.__CurrentHover = nil
+		end
+	end)
+	
+	local Connection
+	Connection = Object:GetPropertyChangedSignal("Parent"):Connect(function()
+		if Object.Parent then
+			return
+		end
+		
+		self.__Hovers[Object] = nil
+		Connection:Disconnect()
+		
+		if self.__CurrentHover == Object then
+			self.__CurrentHover = nil
+		end
 	end)
 	
 	return self.__Hovers[Object]
