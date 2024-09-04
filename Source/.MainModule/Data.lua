@@ -78,7 +78,7 @@ Data.ArgumentsTransform = {
 			return UserId
 		end
 		
-		if String:lower() == "me" then
+		if Caller and String:lower() == "me" then
 			return Caller
 		end
 		
@@ -88,7 +88,7 @@ Data.ArgumentsTransform = {
 		end
 		
 		if table.find({"all", "everyone"}, String:lower()) then
-			if Data.SessionData[Caller.UserId].ServerRank < Settings.EveryoneAccess then
+			if Caller and Data.SessionData[Caller.UserId].ServerRank < Settings.EveryoneAccess then
 				return "ERROR", `No permission to use 'All' as a player.`
 			end
 			
@@ -195,5 +195,9 @@ Data.ClientFolder = script.Parent.Client
 
 Data.BinFolder = Instance.new("Folder")
 Data.ChatCommandFolder = Instance.new("Folder")
+
+Data.Topics = {
+	Global = "GAdmin Callback",
+}
 
 return Data
